@@ -264,26 +264,13 @@ void MuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
       addOverheadSample(flushOverhead_, mupti_.flushOverhead);
     }
     if (traceBuffers_->gpu) {
-      auto count_and_size1 = mupti_.processActivities(
+      auto count_and_size = mupti_.processActivities(
           *traceBuffers_->gpu,
           std::bind(
               &MuptiActivityProfiler::handleMuptiActivity,
               this,
               std::placeholders::_1,
               &logger));
-
-      // Wait for mupti buffer write
-      std::this_thread::sleep_for(seconds(3));
-      auto count_and_size2 = mupti_.processActivities(
-          *traceBuffers_->gpu,
-          std::bind(
-              &MuptiActivityProfiler::handleMuptiActivity,
-              this,
-              std::placeholders::_1,
-              &logger));      
-      std::pair<int, size_t> count_and_size{0, 0};
-      count_and_size.first = count_and_size1.first + count_and_size2.first;
-      count_and_size.second = count_and_size1.second + count_and_size2.second;
 
       LOG(INFO) << "Processed " << count_and_size.first << " GPU records ("
                 << count_and_size.second << " bytes)";
