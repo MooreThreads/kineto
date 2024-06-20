@@ -140,6 +140,7 @@ void MuptiActivityApi::setDeviceBufferPoolLimit(size_t limit) {
 void MuptiActivityApi::forceLoadMupti() {
 #ifdef HAS_MUPTI
   MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL));
+  MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL));
 #endif
 }
 
@@ -163,7 +164,8 @@ void MuptiActivityApi::bufferRequested(
     uint8_t** buffer, size_t* size, size_t* maxNumRecords) {
   std::lock_guard<std::mutex> guard(mutex_);
   if (allocatedGpuTraceBuffers_.size() >= maxGpuBufferCount_) {
-    stopCollection = true;
+    // comment this to avoid stopping the collection when the buffer is full
+    // stopCollection = true;
     LOG(WARNING) << "Exceeded max GPU buffer count ("
                  << allocatedGpuTraceBuffers_.size()
                  << " > " << maxGpuBufferCount_

@@ -143,7 +143,7 @@ std::string IpcFabricConfigClient::getLibkinetoBaseConfig() {
   return "";
 }
 
-std::string IpcFabricConfigClient::getLibkinetoOndemandConfig(int32_t type) {
+std::string IpcFabricConfigClient::getLibkinetoOndemandConfig(int32_t type, int currentRunloopState) {
   if (!ipcFabricEnabled_) {
     return "";
   }
@@ -157,6 +157,7 @@ std::string IpcFabricConfigClient::getLibkinetoOndemandConfig(int32_t type) {
   ::dynolog::ipcfabric::LibkinetoRequest* req = (::dynolog::ipcfabric::LibkinetoRequest*)malloc(sizeof(::dynolog::ipcfabric::LibkinetoRequest) + sizeof(int32_t) * size);
   req->type = type;
   req->n = size;
+  req->currentRunloopState = currentRunloopState;
   req->jobid = jobId_;
   for (int i = 0; i < size; i++) {
     req->pids[i] = pids_[i];

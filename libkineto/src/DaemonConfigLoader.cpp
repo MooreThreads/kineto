@@ -33,7 +33,7 @@ std::string DaemonConfigLoader::readBaseConfig() {
   return configClient->getLibkinetoBaseConfig();
 }
 
-std::string DaemonConfigLoader::readOnDemandConfig(bool events, bool activities) {
+std::string DaemonConfigLoader::readOnDemandConfig(bool events, bool activities, int currentRunloopState) {
   auto configClient = getConfigClient();
   if (!configClient) {
     LOG_EVERY_N(WARNING, 10) << "Failed to read config: No dyno config client";
@@ -46,7 +46,7 @@ std::string DaemonConfigLoader::readOnDemandConfig(bool events, bool activities)
   if (activities) {
     config_type |= int(LibkinetoConfigType::ACTIVITIES);
   }
-  return configClient->getLibkinetoOndemandConfig(config_type);
+  return configClient->getLibkinetoOndemandConfig(config_type, currentRunloopState);
 }
 
 int DaemonConfigLoader::gpuContextCount(uint32_t device) {

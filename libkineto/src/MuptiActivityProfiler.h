@@ -116,6 +116,19 @@ class MuptiActivityProfiler {
     return currentRunloopState_ != RunloopState::WaitForRequest;
   }
 
+  int getCurrentRunloopState() const {
+    switch (currentRunloopState_) {
+      case RunloopState::WaitForRequest:
+        return 0;
+      case RunloopState::Warmup:
+        return 1;
+      case RunloopState::CollectTrace:
+        return 2;
+      case RunloopState::ProcessTrace:
+        return 3;
+    }
+  }
+
   // Invoke at a regular interval to perform profiling activities.
   // When not active, an interval of 1-5 seconds is probably fine,
   // depending on required warm-up time and delayed start time.

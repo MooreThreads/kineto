@@ -44,7 +44,7 @@ class IpcFabricConfigClient {
 
   // Get on demand configurations for tracing/counter collection
   // type is a bit mask, please see LibkinetoConfigType encoding above.
-  virtual std::string getLibkinetoOndemandConfig(int32_t type);
+  virtual std::string getLibkinetoOndemandConfig(int32_t type, int currentRunloopState);
 
   void setIpcFabricEnabled(bool enabled) {
     ipcFabricEnabled_ = enabled;

@@ -47,6 +47,7 @@ class ConfigLoader {
     virtual ~ConfigHandler() {}
     virtual bool canAcceptConfig() = 0;
     virtual void acceptConfig(const Config& cfg) = 0;
+    virtual int getCurrentRunloopState() = 0;
   };
 
   void addHandler(ConfigKind kind, ConfigHandler* handler) {
@@ -69,6 +70,17 @@ class ConfigLoader {
     for (auto& key_val : handlers_) {
       for (ConfigHandler* handler : key_val.second) {
         handler->acceptConfig(cfg);
+      }
+    }
+  }
+
+  int getCurrentRunloopState() {
+    std::lock_guard<std::mutex> lock(updateThreadMutex_);
+    for (auto& key_val : handlers_) {
+      if (key_val.first == ConfigKind::ActivityProfiler) {
+        for (ConfigHandler* handler : key_val.second) {
+          return handler->getCurrentRunloopState();
+        }
       }
     }
   }
@@ -131,7 +143,7 @@ class ConfigLoader {
       Config& config);
 
   std::string readOnDemandConfigFromDaemon(
-      std::chrono::time_point<std::chrono::system_clock> now);
+      std::chrono::time_point<std::chrono::system_clock> now, int currentRunloopState);
 
   const char* customConfigFileName();
 

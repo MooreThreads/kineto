@@ -284,6 +284,11 @@ void EventProfilerController::acceptConfig(const Config& config) {
   LOG(INFO) << "Received new on-demand config";
 }
 
+int EventProfilerController::getCurrentRunloopState() {
+  VLOG(1) << "getCurrentRunloopState";
+  return -1;
+}
+
 bool EventProfilerController::enableForDevice(Config& cfg) {
   // FIXME: Use device unique id!
   if (!cfg.eventProfilerEnabledForDevice(profiler_->device())) {

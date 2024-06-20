@@ -166,7 +166,7 @@ void libkineto_init(bool cpuOnly, bool logOnError) {
     }
   }
 
-  if (shouldPreloadMuptiInstrumentation()) {
+  if (!cpuOnly && shouldPreloadMuptiInstrumentation()) {
     MuptiActivityApi::forceLoadMupti();
   }
 #endif // HAS_MUPTI

@@ -49,6 +49,8 @@ class EventProfilerController : public ConfigLoader::ConfigHandler {
 
   void acceptConfig(const Config& config) override;
 
+  int getCurrentRunloopState() override;
+
  private:
   explicit EventProfilerController(
       MUcontext context,

@@ -918,6 +918,18 @@ void MuptiActivityProfiler::startTraceInternal(
 void MuptiActivityProfiler::stopTraceInternal(
     const time_point<system_clock>& now) {
   captureWindowEndTime_ = libkineto::timeSinceEpoch(now);
+  bool enable_mt_timer_gpu_events = (getenv("MT_TIMER_GPU_EVENTS") != nullptr);
+  int captureWindowLen = 60;  // set window len as 60s to avoid too much replicated data
+  if(enable_mt_timer_gpu_events) {
+    if (getenv("MT_TIMER_CAPTURE_WINDOW_LEN")) {
+      try {
+        captureWindowLen = std::stoi(getenv("MT_TIMER_CAPTURE_WINDOW_LEN"));
+      } catch (const std::invalid_argument& e) {
+        LOG(ERROR) << "Invalid value for MT_TIMER_CAPTURE_WINDOW_LEN. Using default 60s.\n";
+      }
+    }
+    captureWindowEndTime_ = captureWindowStartTime_ + 1000000*captureWindowLen;
+  }
 #if defined(HAS_MUPTI) || defined(HAS_ROCTRACER)
   if (!cpuOnly_) {
     time_point<system_clock> timestamp;
