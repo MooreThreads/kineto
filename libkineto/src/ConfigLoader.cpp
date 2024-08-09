@@ -125,13 +125,13 @@ ConfigLoader& ConfigLoader::instance() {
 
 // return an empty string if polling gets any errors. Otherwise a config string.
 std::string ConfigLoader::readOnDemandConfigFromDaemon(
-    time_point<system_clock> now) {
+    time_point<system_clock> now, int currentRunloopState) {
   if (!daemonConfigLoader_) {
     return "";
   }
   bool events = canHandlerAcceptConfig(ConfigKind::EventProfiler);
   bool activities = canHandlerAcceptConfig(ConfigKind::ActivityProfiler);
-  return daemonConfigLoader_->readOnDemandConfig(events, activities);
+  return daemonConfigLoader_->readOnDemandConfig(events, activities, currentRunloopState);
 }
 
 int ConfigLoader::contextCountForGpu(uint32_t device) {
@@ -263,7 +263,8 @@ void ConfigLoader::configureFromSignal(
 void ConfigLoader::configureFromDaemon(
     time_point<system_clock> now,
     Config& config) {
-  const std::string config_str = readOnDemandConfigFromDaemon(now);
+  const int currentRunloopState = getCurrentRunloopState();
+  const std::string config_str = readOnDemandConfigFromDaemon(now, currentRunloopState);
   if (config_str.empty()) {
     return;
   }

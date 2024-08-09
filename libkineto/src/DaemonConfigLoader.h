@@ -25,7 +25,7 @@ class IDaemonConfigLoader {
   virtual std::string readBaseConfig() = 0;
 
   // Return a configuration string from the daemon, if one has been posted.
-  virtual std::string readOnDemandConfig(bool events, bool activities) = 0;
+  virtual std::string readOnDemandConfig(bool events, bool activities, int currentRunloopState) = 0;
 
   // Returns the number of tracked contexts for this device. The daemon has a
   // global view. If an unexpedted error occurs, return -1.
@@ -45,7 +45,7 @@ class DaemonConfigLoader : public IDaemonConfigLoader {
   std::string readBaseConfig() override;
 
   // Return a configuration string from the daemon, if one has been posted.
-  std::string readOnDemandConfig(bool events, bool activities) override;
+  std::string readOnDemandConfig(bool events, bool activities, int currentRunloopState) override;
 
   // Returns the number of tracked contexts for this device. The daemon has a
   // global view. If an unexpected error occurs, return -1.

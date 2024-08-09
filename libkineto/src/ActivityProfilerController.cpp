@@ -259,6 +259,11 @@ void ActivityProfilerController::activateConfig(
   asyncRequestConfig_ = nullptr;
 }
 
+int ActivityProfilerController::getCurrentRunloopState() {
+  VLOG(1) << "getCurrentRunloopState";
+  return profiler_->getCurrentRunloopState();
+}
+
 void ActivityProfilerController::scheduleTrace(const Config& config) {
   VLOG(1) << "scheduleTrace";
   if (profiler_->isActive()) {
