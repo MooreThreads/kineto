@@ -55,6 +55,7 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
   bool canAcceptConfig() override;
   void acceptConfig(const Config& config) override;
   void scheduleTrace(const Config& config);
+  bool hasOnDemandRequest();
   int getCurrentRunloopState() override;
 
   // These API are used for Synchronous Tracing.

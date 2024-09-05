@@ -44,6 +44,10 @@ void ActivityProfilerProxy::scheduleTrace(const Config& config) {
   controller_->scheduleTrace(config);
 }
 
+bool ActivityProfilerProxy::hasOnDemandRequest() {
+  return controller_->hasOnDemandRequest();
+}
+
 void ActivityProfilerProxy::prepareTrace(
     const std::set<ActivityType>& activityTypes,
     const std::string& configStr) {

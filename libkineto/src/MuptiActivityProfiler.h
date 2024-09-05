@@ -116,6 +116,14 @@ class MuptiActivityProfiler {
     return currentRunloopState_ != RunloopState::WaitForRequest;
   }
 
+  bool isOnDemandProfilingRunning() const {
+    return onDemandProfilingRunning_;
+  }
+
+  void setOnDemandProfilingRunning(bool b) {
+    onDemandProfilingRunning_ = b;
+  }
+
   int getCurrentRunloopState() const {
     switch (currentRunloopState_) {
       case RunloopState::WaitForRequest:
@@ -430,6 +438,8 @@ class MuptiActivityProfiler {
 
   // Runloop phase
   std::atomic<RunloopState> currentRunloopState_{RunloopState::WaitForRequest};
+  // On-Demand profiling running status
+  std::atomic_bool onDemandProfilingRunning_{false};
 
   // Keep track of the start time and end time for the trace collected.
   // External threads using startTrace need to manually stopTrace. Part of the mock tests.
