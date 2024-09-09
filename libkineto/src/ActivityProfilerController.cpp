@@ -119,7 +119,7 @@ void ActivityProfilerController::setInvariantViolationsLoggerFactory(
 
 bool ActivityProfilerController::canAcceptConfig() {
   // On-Demand profiling request is highest priority
-  return true;
+  return !profiler_->isOnDemandProfilingRunning();
 }
 
 void ActivityProfilerController::acceptConfig(const Config& config) {
@@ -207,9 +207,9 @@ void ActivityProfilerController::profilerLoop() {
     }
 
     // Perform Double-checked locking to reduce overhead of taking lock.
-    if (asyncRequestConfig_) {
+    if (asyncRequestConfig_ && !profiler_->isActive()) {
       std::lock_guard<std::mutex> lock(asyncConfigLock_);
-      if (asyncRequestConfig_ &&
+      if (asyncRequestConfig_ && !profiler_->isActive() &&
           shouldActivateTimestampConfig(now)) {
         activateConfig(now);
       }
@@ -219,6 +219,8 @@ void ActivityProfilerController::profilerLoop() {
       next_wakeup_time += Config::kControllerIntervalMsecs;
     }
 
+    // Only run performRunLoopStep on on-demand profiling and status is ongoing,
+    // as non on-demand profiling has other control logic (controlled by python code directly.)
     if (profiler_->isActive() && profiler_->isOnDemandProfilingRunning()) {
       next_wakeup_time = profiler_->performRunLoopStep(now, next_wakeup_time);
       VLOG(1) << "Profiler loop: "
@@ -237,15 +239,17 @@ void ActivityProfilerController::step() {
   VLOG(0) << "Step called , iteration  = " << currentIter;
 
   // Perform Double-checked locking to reduce overhead of taking lock.
-  if (asyncRequestConfig_) {
+  if (asyncRequestConfig_ && !profiler_->isActive()) {
     std::lock_guard<std::mutex> lock(asyncConfigLock_);
     auto now = system_clock::now();
-    if (asyncRequestConfig_ &&
+    if (asyncRequestConfig_ && !profiler_->isActive() &&
         shouldActivateIterationConfig(currentIter)) {
       activateConfig(now);
     }
   }
 
+  // Only run performRunLoopStep on on-demand profiling and status is ongoing,
+  // as non on-demand profiling has other control logic (controlled by python code directly.)
   if (profiler_->isActive() && profiler_->isOnDemandProfilingRunning()) {
     auto now = system_clock::now();
     auto next_wakeup_time = now + Config::kControllerIntervalMsecs;
@@ -276,10 +280,14 @@ bool ActivityProfilerController::hasOnDemandRequest() {
 void ActivityProfilerController::scheduleTrace(const Config& config) {
   LOG(INFO) << "scheduleTrace";
   VLOG(1) << "scheduleTrace";
+
+  // If has another ongoing on-demand profiling, just return.
   if (profiler_->isOnDemandProfilingRunning()) {
     LOG(WARNING) << "Ignored scheduleTrace request - another on-demand profiler busy";
     return;
   }
+  // If has another ongoing non on-demand profiling, just stop it,
+  // because on-demand profiling has higher priority, actually, highest.
   if (profiler_->isActive()) {
     LOG(WARNING) << "Cancelling current synchronous trace request in order to start "
                  << "higher priority on-demand trace request";
@@ -287,6 +295,10 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
       libkineto::api().client()->stop();
     }
   }
+  // Function setOnDemandProfilingRunning must be called after libkineto::api().client()->stop(),
+  // because libkineto::api().client()->stop() will finally call ActivityProfilerController::stopTrace(),
+  // if ongoing profiling is non on-demand one.
+  // And stopTrace will check isOnDemandProfilingRunning first of all.
   profiler_->setOnDemandProfilingRunning(true);
   int64_t currentIter = iterationCount_;
   if (config.hasProfileStartIteration() && currentIter < 0) {
@@ -316,9 +328,9 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
 }
 
 void ActivityProfilerController::prepareTrace(const Config& config) {
-  // Requests from ActivityProfilerApi have higher priority than
+  // Requests from ActivityProfilerApi have lower priority than
   // requests from other sources (signal, daemon).
-  // Cancel any ongoing request and refuse new ones.
+  // Refuse new ones if has any ongoing profiling.
   auto now = system_clock::now();
   if (profiler_->isActive() || profiler_->isOnDemandProfilingRunning()) {
     LOG(WARNING) << "Ignored prepareTrace request - profiler busy";
