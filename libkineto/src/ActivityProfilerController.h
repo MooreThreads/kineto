@@ -14,6 +14,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <unistd.h>      //usleep()
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
@@ -55,7 +56,10 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
   bool canAcceptConfig() override;
   void acceptConfig(const Config& config) override;
   void scheduleTrace(const Config& config);
-  bool hasOnDemandRequest();
+  bool isOnDemandProfilingPending();
+  bool isOnDemandProfilingRunning();
+  bool isSyncProfilingRunning();
+  void setSyncProfilingRunning(bool b);
   int getCurrentRunloopState() override;
 
   // These API are used for Synchronous Tracing.

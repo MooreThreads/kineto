@@ -352,6 +352,7 @@ class Config : public AbstractConfig {
   }
 
   void updateActivityProfilerRequestReceivedTime();
+  void updateActivityProfilerStartTime();
 
   void printActivityProfilerConfig(std::ostream& s) const override;
 

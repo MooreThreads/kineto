@@ -92,7 +92,7 @@ std::unordered_map<uint32_t, uint32_t>& ctxToDeviceId() {
 
 namespace KINETO_NAMESPACE {
 
-const int FLUSH_INTERVAL_MILLISECONDS = 50;
+const int FLUSH_INTERVAL_MILLISECONDS = 10;
 std::atomic<bool> running(true);
 std::unique_ptr<std::thread> taskThread;
 
@@ -818,6 +818,7 @@ void MuptiActivityProfiler::configure(
 
   // Check if now is a valid time to start.
   if (!derivedConfig_->canStart(now)) {
+    // TODO qn: update ondemand running status.
     return;
   }
 

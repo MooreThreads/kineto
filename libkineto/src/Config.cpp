@@ -439,6 +439,11 @@ void Config::setClientDefaults() {
   activitiesLogToMemory_ = true;
 }
 
+void Config::updateActivityProfilerStartTime() {
+  profileStartTime_ = system_clock::now() +
+        activitiesWarmupDuration() + 2 * Config::kControllerIntervalMsecs;
+}
+
 void Config::validate(
     const time_point<system_clock>& fallbackProfileStartTime) {
   if (samplePeriod_.count() == 0) {

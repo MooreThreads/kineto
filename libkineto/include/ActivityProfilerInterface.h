@@ -41,9 +41,16 @@ class ActivityProfilerInterface {
   // and duration and / or iteration stop criterion.
   // Tracing terminates when either condition is met.
   virtual void scheduleTrace(const std::string& configStr) {}
-  virtual bool hasOnDemandRequest() {
+  virtual bool isOnDemandProfilingPending() {
     return false;
   }
+  virtual bool isOnDemandProfilingRunning() {
+    return false;
+  }
+  virtual bool isSyncProfilingRunning() {
+    return false;
+  }
+  virtual void setSyncProfilingRunning(bool b) {}
 
   // *** Synchronous API ***
   // These must be called in order:

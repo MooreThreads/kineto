@@ -118,8 +118,8 @@ void ActivityProfilerController::setInvariantViolationsLoggerFactory(
 }
 
 bool ActivityProfilerController::canAcceptConfig() {
-  // On-Demand profiling request is highest priority
-  return !profiler_->isOnDemandProfilingRunning();
+  // If has ongoing or pending on-demand profiling, do not receive new one.
+  return !profiler_->isOnDemandProfilingRunning() && !profiler_->isOnDemandProfilingPending();
 }
 
 void ActivityProfilerController::acceptConfig(const Config& config) {
@@ -272,9 +272,24 @@ int ActivityProfilerController::getCurrentRunloopState() {
   return profiler_->getCurrentRunloopState();
 }
 
-bool ActivityProfilerController::hasOnDemandRequest() {
-  LOG(INFO) << "hasOnDemandRequest";
+bool ActivityProfilerController::isOnDemandProfilingPending() {
+  LOG(INFO) << "isOnDemandProfilingPending";
+  return profiler_->isOnDemandProfilingPending();
+}
+
+bool ActivityProfilerController::isOnDemandProfilingRunning() {
+  LOG(INFO) << "isOnDemandProfilingRunning";
   return profiler_->isOnDemandProfilingRunning();
+}
+
+bool ActivityProfilerController::isSyncProfilingRunning() {
+  LOG(INFO) << "isSyncProfilingRunning";
+  return profiler_->isSyncProfilingRunning();
+}
+
+void ActivityProfilerController::setSyncProfilingRunning(bool b) {
+  LOG(INFO) << "isSyncProfilingRunning";
+  profiler_->setSyncProfilingRunning(b);
 }
 
 void ActivityProfilerController::scheduleTrace(const Config& config) {
@@ -286,20 +301,20 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
     LOG(WARNING) << "Ignored scheduleTrace request - another on-demand profiler busy";
     return;
   }
-  // If has another ongoing non on-demand profiling, just stop it,
-  // because on-demand profiling has higher priority, actually, highest.
-  if (profiler_->isActive()) {
-    LOG(WARNING) << "Cancelling current synchronous trace request in order to start "
-                 << "higher priority on-demand trace request";
-    if (libkineto::api().client()) {
-      libkineto::api().client()->stop();
-    }
+  profiler_->setOnDemandProfilingPending(true);
+  // If has another ongoing non on-demand profiling, wait until is finished normally.
+  while (profiler_->isSyncProfilingRunning()) {
+    // Block here, until sync profiling is finished.
+    LOG(INFO) << "wait until sync profiling finished.";
+    usleep(500000); // 500ms
   }
-  // Function setOnDemandProfilingRunning must be called after libkineto::api().client()->stop(),
-  // because libkineto::api().client()->stop() will finally call ActivityProfilerController::stopTrace(),
-  // if ongoing profiling is non on-demand one.
-  // And stopTrace will check isOnDemandProfilingRunning first of all.
   profiler_->setOnDemandProfilingRunning(true);
+  profiler_->setOnDemandProfilingPending(false);
+  if (profiler_->isActive()) {
+    // TODO qn: should be deleted if test OK.
+    LOG(ERROR) << "CAN NOT REACH HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+    return;
+  }
   int64_t currentIter = iterationCount_;
   if (config.hasProfileStartIteration() && currentIter < 0) {
     LOG(WARNING) << "Ignored profile iteration count based request as "
@@ -320,6 +335,10 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
     return;
   }
 
+  // Modify config request time, because may delay by sync profiling tasks.
+  asyncRequestConfig_->updateActivityProfilerRequestReceivedTime();
+  asyncRequestConfig_->updateActivityProfilerStartTime();
+
   // start a profilerLoop() thread to handle request
   if (!profilerThread_) {
     profilerThread_ =
@@ -336,8 +355,13 @@ void ActivityProfilerController::prepareTrace(const Config& config) {
     LOG(WARNING) << "Ignored prepareTrace request - profiler busy";
     return;
   }
+  if (profiler_->isOnDemandProfilingPending()) {
+    LOG(WARNING) << "Ignored prepareTrace request - as on-demand profiling pending.";
+    return;
+  }
 
   profiler_->configure(config, now);
+  profiler_->setSyncProfilingRunning(true);
 }
 
 void ActivityProfilerController::startTrace() {
