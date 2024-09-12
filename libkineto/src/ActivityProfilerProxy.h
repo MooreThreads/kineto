@@ -47,8 +47,6 @@ class ActivityProfilerProxy : public ActivityProfilerInterface {
 
   void scheduleTrace(const std::string& configStr) override;
   void scheduleTrace(const Config& config);
-  bool isOnDemandProfilingPending() override;
-  bool isOnDemandProfilingRunning() override;
   bool isSyncProfilingRunning() override;
   void setSyncProfilingRunning(bool b) override;
 

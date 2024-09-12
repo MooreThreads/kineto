@@ -44,14 +44,6 @@ void ActivityProfilerProxy::scheduleTrace(const Config& config) {
   controller_->scheduleTrace(config);
 }
 
-bool ActivityProfilerProxy::isOnDemandProfilingPending() {
-  return controller_->isOnDemandProfilingPending();
-}
-
-bool ActivityProfilerProxy::isOnDemandProfilingRunning() {
-  return controller_->isOnDemandProfilingRunning();
-}
-
 bool ActivityProfilerProxy::isSyncProfilingRunning() {
   return controller_->isSyncProfilingRunning();
 }

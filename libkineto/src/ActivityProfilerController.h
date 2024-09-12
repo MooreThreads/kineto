@@ -56,8 +56,6 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
   bool canAcceptConfig() override;
   void acceptConfig(const Config& config) override;
   void scheduleTrace(const Config& config);
-  bool isOnDemandProfilingPending();
-  bool isOnDemandProfilingRunning();
   bool isSyncProfilingRunning();
   void setSyncProfilingRunning(bool b);
   int getCurrentRunloopState() override;

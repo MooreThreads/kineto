@@ -274,23 +274,13 @@ int ActivityProfilerController::getCurrentRunloopState() {
   return profiler_->getCurrentRunloopState();
 }
 
-bool ActivityProfilerController::isOnDemandProfilingPending() {
-  LOG(INFO) << "call isOnDemandProfilingPending";
-  return profiler_->isOnDemandProfilingPending();
-}
-
-bool ActivityProfilerController::isOnDemandProfilingRunning() {
-  LOG(INFO) << "call isOnDemandProfilingRunning";
-  return profiler_->isOnDemandProfilingRunning();
-}
-
 bool ActivityProfilerController::isSyncProfilingRunning() {
   LOG(INFO) << "call isSyncProfilingRunning";
   return profiler_->isSyncProfilingRunning();
 }
 
 void ActivityProfilerController::setSyncProfilingRunning(bool b) {
-  LOG(INFO) << "call isSyncProfilingRunning";
+  LOG(INFO) << "call setSyncProfilingRunning";
   profiler_->setSyncProfilingRunning(b);
 }
 
