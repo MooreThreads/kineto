@@ -220,7 +220,8 @@ void ActivityProfilerController::profilerLoop() {
     }
 
     // Only run performRunLoopStep on on-demand profiling and status is ongoing,
-    // as non on-demand profiling has other control logic (controlled by python code directly.)
+    // as sync profiling which is called by python api,
+    // has other control logic (controlled by python code directly.)
     if (profiler_->isActive() && profiler_->isOnDemandProfilingRunning()) {
       next_wakeup_time = profiler_->performRunLoopStep(now, next_wakeup_time);
       VLOG(1) << "Profiler loop: "
@@ -249,7 +250,8 @@ void ActivityProfilerController::step() {
   }
 
   // Only run performRunLoopStep on on-demand profiling and status is ongoing,
-  // as non on-demand profiling has other control logic (controlled by python code directly.)
+  // as sync profiling which is called by python api,
+  // has other control logic (controlled by python code directly.)
   if (profiler_->isActive() && profiler_->isOnDemandProfilingRunning()) {
     auto now = system_clock::now();
     auto next_wakeup_time = now + Config::kControllerIntervalMsecs;
@@ -273,22 +275,22 @@ int ActivityProfilerController::getCurrentRunloopState() {
 }
 
 bool ActivityProfilerController::isOnDemandProfilingPending() {
-  LOG(INFO) << "isOnDemandProfilingPending";
+  LOG(INFO) << "call isOnDemandProfilingPending";
   return profiler_->isOnDemandProfilingPending();
 }
 
 bool ActivityProfilerController::isOnDemandProfilingRunning() {
-  LOG(INFO) << "isOnDemandProfilingRunning";
+  LOG(INFO) << "call isOnDemandProfilingRunning";
   return profiler_->isOnDemandProfilingRunning();
 }
 
 bool ActivityProfilerController::isSyncProfilingRunning() {
-  LOG(INFO) << "isSyncProfilingRunning";
+  LOG(INFO) << "call isSyncProfilingRunning";
   return profiler_->isSyncProfilingRunning();
 }
 
 void ActivityProfilerController::setSyncProfilingRunning(bool b) {
-  LOG(INFO) << "isSyncProfilingRunning";
+  LOG(INFO) << "call isSyncProfilingRunning";
   profiler_->setSyncProfilingRunning(b);
 }
 
@@ -302,7 +304,7 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
     return;
   }
   profiler_->setOnDemandProfilingPending(true);
-  // If has another ongoing non on-demand profiling, wait until is finished normally.
+  // If has another ongoing sync profiling, wait until it is finished normally.
   while (profiler_->isSyncProfilingRunning()) {
     // Block here, until sync profiling is finished.
     LOG(INFO) << "wait until sync profiling finished.";
@@ -310,11 +312,7 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
   }
   profiler_->setOnDemandProfilingRunning(true);
   profiler_->setOnDemandProfilingPending(false);
-  if (profiler_->isActive()) {
-    // TODO qn: should be deleted if test OK.
-    LOG(ERROR) << "CAN NOT REACH HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
-    return;
-  }
+
   int64_t currentIter = iterationCount_;
   if (config.hasProfileStartIteration() && currentIter < 0) {
     LOG(WARNING) << "Ignored profile iteration count based request as "

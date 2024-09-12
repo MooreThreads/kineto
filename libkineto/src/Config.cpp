@@ -46,7 +46,7 @@ constexpr int kDefaultSamplesPerReport(1);
 constexpr int kDefaultMaxEventProfilersPerGpu(1);
 constexpr int kDefaultEventProfilerHearbeatMonitorPeriod(0);
 constexpr seconds kMaxRequestAge(10);
-constexpr seconds kDefaultOnDemandConfigUpdateIntervalSecs(5);
+constexpr seconds kDefaultOnDemandConfigUpdateIntervalSecs(1);
 // 3200000 is the default value set by MUPTI
 constexpr size_t kDefaultMuptiDeviceBufferSize(3200000);
 // Default value set by MUPTI is 250

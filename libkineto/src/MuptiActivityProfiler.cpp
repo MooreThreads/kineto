@@ -97,13 +97,11 @@ std::atomic<bool> running(true);
 std::unique_ptr<std::thread> taskThread;
 
 void periodicTask(int intervalMilliseconds){
-  LOG(INFO) << "periodicTask thread enter...";
   while (running)
   {
       std::this_thread::sleep_for(milliseconds(intervalMilliseconds));
       MUPTI_CALL(muptiActivityFlushAll(0));
   }
-  LOG(INFO) << "periodicTask thread exit.";
 }
 
 ConfigDerivedState::ConfigDerivedState(const Config& config) {
@@ -818,7 +816,7 @@ void MuptiActivityProfiler::configure(
 
   // Check if now is a valid time to start.
   if (!derivedConfig_->canStart(now)) {
-    // TODO qn: update ondemand running status.
+    // Added by qiaoning @20240912 should update on-demand running status? MAYBE.
     return;
   }
 
@@ -920,7 +918,6 @@ void MuptiActivityProfiler::startTraceInternal(
 
 void MuptiActivityProfiler::stopTraceInternal(
     const time_point<system_clock>& now) {
-  LOG(INFO) << "MuptiActivityProfiler::stopTraceInternal";
   captureWindowEndTime_ = libkineto::timeSinceEpoch(now);
   bool enable_mt_timer_gpu_events = (getenv("MT_TIMER_GPU_EVENTS") != nullptr);
   int captureWindowLen = 60;  // set window len as 60s to avoid too much replicated data
@@ -955,7 +952,6 @@ void MuptiActivityProfiler::stopTraceInternal(
 
   if (currentRunloopState_ == RunloopState::CollectTrace) {
     VLOG(0) << "CollectTrace -> ProcessTrace";
-    LOG(INFO) << "MuptiActivityProfiler::stopTraceInternal CollectTrace -> ProcessTrace";
   } else {
     LOG(WARNING) << "Called stopTrace with state == "
                  << static_cast<std::underlying_type<RunloopState>::type>(
@@ -967,14 +963,10 @@ void MuptiActivityProfiler::stopTraceInternal(
   }
   currentRunloopState_ = RunloopState::ProcessTrace;
 
-  // May occur SIGSEGV signal
   if(taskThread && taskThread->joinable()){
-    LOG(INFO) << "taskThread joinable... ";
     running = false;
     taskThread->join();
-    LOG(INFO) << "taskThread join DONE. ";
   }
-  LOG(INFO) << "MuptiActivityProfiler::stopTraceInternal DONE.";
 }
 
 void MuptiActivityProfiler::resetInternal() {
@@ -1035,7 +1027,6 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
         if (libkineto::api().client()) {
           libkineto::api().client()->start();
         }
-        LOG(INFO) << "Tracing started DONE.";
         if (nextWakeupTime > derivedConfig_->profileEndTime()) {
           new_wakeup_time = derivedConfig_->profileEndTime();
         }
@@ -1047,7 +1038,6 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
 
     case RunloopState::CollectTrace:
       VLOG(1) << "State: CollectTrace";
-      LOG(INFO) << "State: CollectTrace";
       collection_done = derivedConfig_->isCollectionDone(now, currentIter);
 
       if (collection_done
@@ -1059,11 +1049,9 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
         LOG(INFO) << "Tracing complete.";
         VLOG_IF(1, currentIter > 0) << "This state change was invoked by application's step() call";
 
-        LOG(INFO) << "Tracing complete: call libkineto::api().client()->stop()...";
         if (libkineto::api().client()) {
           libkineto::api().client()->stop();
         }
-        LOG(INFO) << "Tracing complete: call libkineto::api().client()->stop() DONE.";
 
 #if defined(HAS_MUPTI) || defined(HAS_ROCTRACER)
         ecs_.mupti_stopped_early = mupti_.stopCollection;

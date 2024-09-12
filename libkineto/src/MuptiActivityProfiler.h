@@ -141,16 +141,24 @@ class MuptiActivityProfiler {
   }
 
   int getCurrentRunloopState() const {
-    switch (currentRunloopState_) {
-      case RunloopState::WaitForRequest:
-        return 0;
-      case RunloopState::Warmup:
-        return 1;
-      case RunloopState::CollectTrace:
-        return 2;
-      case RunloopState::ProcessTrace:
-        return 3;
+    if (onDemandProfilingPending_) {
+      return 4; // Pending
     }
+    if (onDemandProfilingRunning_) {
+      switch (currentRunloopState_) {
+        case RunloopState::WaitForRequest:
+          return 1; // Consider as warmup because onDemandProfilingRunning_ is true
+        case RunloopState::Warmup:
+          return 1;
+        case RunloopState::CollectTrace:
+          return 2;
+        case RunloopState::ProcessTrace:
+          return 3;
+      }
+    }
+    // onDemandProfilingPending_ and onDemandProfilingRunning_ both false,
+    // so, new on-demand profiling can be accepted now, ignore syncProfilingRunning_ status.
+    return 0; // WaitForRequest
   }
 
   // Invoke at a regular interval to perform profiling activities.
