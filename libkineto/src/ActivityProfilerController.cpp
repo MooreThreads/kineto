@@ -288,12 +288,19 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
   LOG(INFO) << "scheduleTrace";
   VLOG(1) << "scheduleTrace";
 
+  // If has another pending on-demand profiling, just return.
+  if (profiler_->isOnDemandProfilingPending()) {
+    LOG(WARNING) << "Ignored on-demand profiling request, as another on-demand profiler is pending.";
+    return;
+  }
+
   // If has another ongoing on-demand profiling, just return.
   if (profiler_->isOnDemandProfilingRunning()) {
-    LOG(WARNING) << "Ignored scheduleTrace request - another on-demand profiler busy";
+    LOG(WARNING) << "Ignored on-demand profiling request, as another on-demand profiler is running.";
     return;
   }
   profiler_->setOnDemandProfilingPending(true);
+  LOG(INFO) << "On-demand profiling enter [pending] status.";
   // If has another ongoing sync profiling, wait until it is finished normally.
   while (profiler_->isSyncProfilingRunning()) {
     // Block here, until sync profiling is finished.
@@ -302,6 +309,7 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
   }
   profiler_->setOnDemandProfilingRunning(true);
   profiler_->setOnDemandProfilingPending(false);
+  LOG(INFO) << "On-demand profiling enter [running] status.";
 
   int64_t currentIter = iterationCount_;
   if (config.hasProfileStartIteration() && currentIter < 0) {
