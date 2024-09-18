@@ -300,15 +300,18 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
     return;
   }
   profiler_->setOnDemandProfilingPending(true);
+  configLoader_.notifyCurrentRunloopState(4); // 4 - on-demand profiling pending
   LOG(INFO) << "On-demand profiling enter [pending] status.";
   // If has another ongoing sync profiling, wait until it is finished normally.
   while (profiler_->isSyncProfilingRunning()) {
     // Block here, until sync profiling is finished.
     LOG(INFO) << "wait until sync profiling finished.";
+    // sleep in main thread, readOnDemandConfigFromDaemon will be blocked.
     usleep(500000); // 500ms
   }
   profiler_->setOnDemandProfilingRunning(true);
   profiler_->setOnDemandProfilingPending(false);
+  configLoader_.notifyCurrentRunloopState(1); // 1 - on-demand profiling running
   LOG(INFO) << "On-demand profiling enter [running] status.";
 
   int64_t currentIter = iterationCount_;

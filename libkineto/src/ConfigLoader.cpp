@@ -134,6 +134,13 @@ std::string ConfigLoader::readOnDemandConfigFromDaemon(
   return daemonConfigLoader_->readOnDemandConfig(events, activities, currentRunloopState);
 }
 
+void ConfigLoader::notifyCurrentRunloopState(int state) {
+  if (!daemonConfigLoader_) {
+    return;
+  }
+  daemonConfigLoader_->readOnDemandConfig(false, true, state);
+}
+
 int ConfigLoader::contextCountForGpu(uint32_t device) {
   if (!daemonConfigLoader_) {
     // FIXME: Throw error?
