@@ -44,6 +44,14 @@ void ActivityProfilerProxy::scheduleTrace(const Config& config) {
   controller_->scheduleTrace(config);
 }
 
+bool ActivityProfilerProxy::isSyncProfilingRunning() {
+  return controller_->isSyncProfilingRunning();
+}
+
+void ActivityProfilerProxy::setSyncProfilingRunning(bool b) {
+  return controller_->setSyncProfilingRunning(b);
+}
+
 void ActivityProfilerProxy::prepareTrace(
     const std::set<ActivityType>& activityTypes,
     const std::string& configStr) {

@@ -816,6 +816,7 @@ void MuptiActivityProfiler::configure(
 
   // Check if now is a valid time to start.
   if (!derivedConfig_->canStart(now)) {
+    // Added by qiaoning @20240912 should update on-demand running status? MAYBE.
     return;
   }
 
@@ -1084,6 +1085,7 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
       processTraceInternal(*logger_);
       UST_LOGGER_MARK_COMPLETED(kPostProcessingStage);
       resetInternal();
+      onDemandProfilingRunning_ = false;
       VLOG(0) << "ProcessTrace -> WaitForRequest";
       break;
   }

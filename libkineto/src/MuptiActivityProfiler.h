@@ -116,17 +116,49 @@ class MuptiActivityProfiler {
     return currentRunloopState_ != RunloopState::WaitForRequest;
   }
 
+  bool isOnDemandProfilingPending() const {
+    return onDemandProfilingPending_;
+  }
+
+  void setOnDemandProfilingPending(bool b) {
+    onDemandProfilingPending_ = b;
+  }
+
+  bool isOnDemandProfilingRunning() const {
+    return onDemandProfilingRunning_;
+  }
+
+  void setOnDemandProfilingRunning(bool b) {
+    onDemandProfilingRunning_ = b;
+  }
+
+  bool isSyncProfilingRunning() const {
+    return syncProfilingRunning_;
+  }
+
+  void setSyncProfilingRunning(bool b) {
+    syncProfilingRunning_ = b;
+  }
+
   int getCurrentRunloopState() const {
-    switch (currentRunloopState_) {
-      case RunloopState::WaitForRequest:
-        return 0;
-      case RunloopState::Warmup:
-        return 1;
-      case RunloopState::CollectTrace:
-        return 2;
-      case RunloopState::ProcessTrace:
-        return 3;
+    if (onDemandProfilingPending_) {
+      return 4; // Pending
     }
+    if (onDemandProfilingRunning_) {
+      switch (currentRunloopState_) {
+        case RunloopState::WaitForRequest:
+          return 1; // Consider as warmup because onDemandProfilingRunning_ is true
+        case RunloopState::Warmup:
+          return 1;
+        case RunloopState::CollectTrace:
+          return 2;
+        case RunloopState::ProcessTrace:
+          return 3;
+      }
+    }
+    // onDemandProfilingPending_ and onDemandProfilingRunning_ both false,
+    // so, new on-demand profiling can be accepted now, ignore syncProfilingRunning_ status.
+    return 0; // WaitForRequest
   }
 
   // Invoke at a regular interval to perform profiling activities.
@@ -430,6 +462,12 @@ class MuptiActivityProfiler {
 
   // Runloop phase
   std::atomic<RunloopState> currentRunloopState_{RunloopState::WaitForRequest};
+  // On-Demand profiling pending status
+  std::atomic_bool onDemandProfilingPending_{false};
+  // On-Demand profiling running status
+  std::atomic_bool onDemandProfilingRunning_{false};
+  // In the process of sync api profiling (already executed prepareTrace and NOT finished yet).
+  std::atomic_bool syncProfilingRunning_{false};
 
   // Keep track of the start time and end time for the trace collected.
   // External threads using startTrace need to manually stopTrace. Part of the mock tests.

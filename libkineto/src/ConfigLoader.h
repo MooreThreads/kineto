@@ -85,6 +85,8 @@ class ConfigLoader {
     }
   }
 
+  void notifyCurrentRunloopState(int state);
+
   bool canHandlerAcceptConfig(ConfigKind kind) {
     std::lock_guard<std::mutex> lock(updateThreadMutex_);
     for (ConfigHandler* handler : handlers_[kind]) {
