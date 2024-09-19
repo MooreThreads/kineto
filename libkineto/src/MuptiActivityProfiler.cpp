@@ -929,7 +929,10 @@ void MuptiActivityProfiler::stopTraceInternal(
         LOG(ERROR) << "Invalid value for MT_TIMER_CAPTURE_WINDOW_LEN. Using default 60s.\n";
       }
     }
-    captureWindowEndTime_ = captureWindowStartTime_ + 1000000*captureWindowLen;
+    if (captureWindowLen > 0) {
+      captureWindowEndTime_ = captureWindowStartTime_ + 1000000*captureWindowLen;
+    }
+    LOG(INFO) << "MT_TIMER_GPU_EVENTS enabled, capture window length: " << captureWindowEndTime_ - captureWindowStartTime_ << "us";
   }
 #if defined(HAS_MUPTI) || defined(HAS_ROCTRACER)
   if (!cpuOnly_) {
