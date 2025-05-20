@@ -67,7 +67,7 @@ struct RuntimeActivity : public MuptiActivity<MUpti_ActivityAPI> {
   int64_t correlationId() const override {return activity_.correlationId;}
   int64_t deviceId() const override {return processId();}
   int64_t resourceId() const override {return threadId_;}
-  ActivityType type() const override {return ActivityType::MUSA_RUNTIME;}
+  ActivityType type() const override {return ActivityType::PRIVATEUSE1_RUNTIME;}
   bool flowStart() const override;
   const std::string name() const override {return runtimeCbidName(activity_.cbid);}
   void log(ActivityLogger& logger) const override;
@@ -87,7 +87,7 @@ struct DriverActivity : public MuptiActivity<MUpti_ActivityAPI> {
   int64_t correlationId() const override {return activity_.correlationId;}
   int64_t deviceId() const override {return processId();}
   int64_t resourceId() const override {return threadId_;}
-  ActivityType type() const override {return ActivityType::MUSA_DRIVER;}
+  ActivityType type() const override {return ActivityType::PRIVATEUSE1_DRIVER;}
   bool flowStart() const override;
   const std::string name() const override;
   void log(ActivityLogger& logger) const override;
@@ -137,7 +137,7 @@ struct MusaSyncActivity : public MuptiActivity<MUpti_ActivitySynchronization> {
   int64_t correlationId() const override {return raw().correlationId;}
   int64_t deviceId() const override;
   int64_t resourceId() const override;
-  ActivityType type() const override {return ActivityType::MUSA_SYNC;}
+  ActivityType type() const override {return ActivityType::CUDA_SYNC;}
   bool flowStart() const override {return false;}
   const std::string name() const override;
   void log(ActivityLogger& logger) const override;

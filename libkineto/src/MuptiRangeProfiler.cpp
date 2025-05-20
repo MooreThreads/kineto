@@ -23,7 +23,7 @@
 
 namespace KINETO_NAMESPACE {
 
-const ActivityType kProfActivityType = ActivityType::MUSA_PROFILER_RANGE;
+const ActivityType kProfActivityType = ActivityType::CUDA_PROFILER_RANGE;
 const std::set<ActivityType> kSupportedActivities{kProfActivityType};
 
 const std::string kProfilerName{"MuptiRangeProfiler"};

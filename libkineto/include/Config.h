@@ -493,4 +493,8 @@ class Config : public AbstractConfig {
 
 constexpr char kUseDaemonEnvVar[] = "KINETO_USE_DAEMON";
 
-} // namespace KINETO_NAMESPACE
+#if __linux__
+bool isDaemonEnvVarSet();
+#endif
+
+} // namespace libkineto

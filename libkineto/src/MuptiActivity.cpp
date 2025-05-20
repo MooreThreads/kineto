@@ -31,6 +31,10 @@ inline ActivityType GpuActivity<MUpti_ActivityKernel6>::type() const {
   return ActivityType::CONCURRENT_KERNEL;
 }
 
+inline bool isWaitEventSync(MUpti_ActivitySynchronizationType type) {
+  return (type == MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT);
+}
+
 inline bool isEventSync(MUpti_ActivitySynchronizationType type) {
   return (
     type == MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_EVENT_SYNCHRONIZE ||
@@ -65,7 +69,7 @@ inline int64_t MusaSyncActivity::resourceId() const {
   // set to MUPTI_SYNCHRONIZATION_INVALID_VALUE (-1)
   // converting to an integer will automatically wrap the number to -1
   // in the trace.
-  return int32_t(raw().streamId);
+  return static_cast<int32_t>(raw().streamId);
 }
 
 inline void MusaSyncActivity::log(ActivityLogger& logger) const {
@@ -81,7 +85,7 @@ inline const std::string MusaSyncActivity::metadataJson() const {
       "device": {}, "context": {})JSON",
       syncTypeString(sync.type),
       isEventSync(raw().type) ? eventSyncInfo(raw(), srcStream_, srcCorrId_) : "",
-      sync.streamId, sync.correlationId,
+      static_cast<int32_t>(sync.streamId), sync.correlationId,
       deviceId(), sync.contextId);
   // clang-format on
   return "";
@@ -101,6 +105,9 @@ constexpr int64_t us(int64_t timestamp) {
 template<>
 inline const std::string GpuActivity<MUpti_ActivityKernel6>::metadataJson() const {
   const MUpti_ActivityKernel6& kernel = raw();
+  float blocksPerSmVal = blocksPerSm(kernel);
+  float warpsPerSmVal = warpsPerSm(kernel);
+
   // clang-format off
   return fmt::format(R"JSON(
       "queued": {}, "device": {}, "context": {},
@@ -116,8 +123,8 @@ inline const std::string GpuActivity<MUpti_ActivityKernel6>::metadataJson() cons
       kernel.streamId, kernel.correlationId,
       kernel.registersPerThread,
       kernel.staticSharedMemory + kernel.dynamicSharedMemory,
-      blocksPerSm(kernel),
-      warpsPerSm(kernel),
+      std::isinf(blocksPerSmVal) ? "\"inf\"" : std::to_string(blocksPerSmVal),
+      std::isinf(warpsPerSmVal) ? "\"inf\"" : std::to_string(warpsPerSmVal),
       kernel.gridX, kernel.gridY, kernel.gridZ,
       kernel.blockX, kernel.blockY, kernel.blockZ,
       (int) (0.5 + kernelOccupancy(kernel) * 100.0));
@@ -248,7 +255,12 @@ inline bool RuntimeActivity::flowStart() const {
       activity_.cbid == MUPTI_RUNTIME_TRACE_CBID_musaDeviceSynchronize_v3020 ||
       activity_.cbid == MUPTI_RUNTIME_TRACE_CBID_musaStreamWaitEvent_v3020;
 
-#if defined(MUPTI_API_VERSION) && MUPTI_API_VERSION >= 18
+/* Todo: why here set 14
+  - when porting mupti, define MUPTI_API_VERSION=14 in musa runtine
+  - when porting kineto, the macro definition here is used directly, did not do test and adapt to cover each details.
+  - setting to 14, but do not test on S4000 Kuae 1.3.
+*/  
+#if defined(MUPTI_API_VERSION) && MUPTI_API_VERSION >= 14
   should_correlate |=
       activity_.cbid == MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernelExC_v11060;
 #endif
@@ -261,8 +273,12 @@ inline const std::string RuntimeActivity::metadataJson() const {
       activity_.cbid, activity_.correlationId);
 }
 
-inline bool DriverActivity::flowStart() const {
+inline bool isKernelLaunchApi(const MUpti_ActivityAPI& activity_) {
   return activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernel;
+}
+
+inline bool DriverActivity::flowStart() const {
+  return isKernelLaunchApi(activity_);
 }
 
 inline const std::string DriverActivity::metadataJson() const {
@@ -273,8 +289,13 @@ inline const std::string DriverActivity::metadataJson() const {
 
 inline const std::string DriverActivity::name() const {
   // currently only muLaunchKernel is expected
-  assert(activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernel);
-  return "muLaunchKernel";
+  assert(isKernelLaunchApi(activity_));
+  // not yet implementing full name matching
+  if (activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernel) {
+    return "muLaunchKernel";
+  } else {
+    return "Unknown"; // should not reach here
+  }
 }
 
 template<class T>

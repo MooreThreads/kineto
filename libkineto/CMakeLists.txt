@@ -30,6 +30,7 @@ set(KINETO_LIBRARY_TYPE "default" CACHE STRING
 set_property(CACHE KINETO_LIBRARY_TYPE PROPERTY STRINGS default shared)
 option(KINETO_BUILD_TESTS "Build kineto unit tests" ON)
 
+set(LIBKINETO_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(LIBKINETO_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(LIBKINETO_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(LIBKINETO_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -181,8 +182,10 @@ elseif(KINETO_LIBRARY_TYPE STREQUAL "static")
     $<TARGET_OBJECTS:kineto_api>)
 elseif(KINETO_LIBRARY_TYPE STREQUAL "shared")
   add_library(kineto SHARED
-    $<TARGET_OBJECTS:kineto_base>)
+    $<TARGET_OBJECTS:kineto_base>
+    $<TARGET_OBJECTS:kineto_api>)
   set_property(TARGET kineto_base PROPERTY POSITION_INDEPENDENT_CODE ON)
+  set_property(TARGET kineto_api PROPERTY POSITION_INDEPENDENT_CODE ON)
   set_target_properties(kineto PROPERTIES
     CXX_VISIBILITY_PRESET hidden)
 else()
@@ -217,4 +220,5 @@ install(EXPORT kinetoLibraryConfig DESTINATION share/cmake/kineto
 
 if(KINETO_BUILD_TESTS)
   add_subdirectory(test)
+  add_subdirectory("${LIBKINETO_THIRDPARTY_DIR}/googletest")
 endif()
