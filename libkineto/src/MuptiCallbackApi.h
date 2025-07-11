@@ -145,7 +145,7 @@ class MuptiCallbackApi {
 
 #ifdef HAS_MUPTI
   MUptiResult lastMuptiStatus_;
-  MUpti_SubscriberHandle subscriber_ {0};
+  MUpti_SubscriberHandle subscriber_ {nullptr};
 #endif
 };
 

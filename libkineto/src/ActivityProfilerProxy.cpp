@@ -13,9 +13,6 @@
 #include "MuptiActivityApi.h"
 #include "Logger.h"
 #include <chrono>
-#ifdef HAS_ROCTRACER
-#include "RoctracerActivityApi.h"
-#endif
 
 namespace KINETO_NAMESPACE {
 
@@ -82,6 +79,10 @@ void ActivityProfilerProxy::prepareTrace(
   controller_->prepareTrace(config);
 }
 
+void ActivityProfilerProxy::toggleCollectionDynamic(const bool enable) {
+  controller_->toggleCollectionDynamic(enable);
+}
+
 void ActivityProfilerProxy::startTrace() {
   controller_->startTrace();
 }
@@ -102,20 +103,11 @@ bool ActivityProfilerProxy::isActive() {
 void ActivityProfilerProxy::pushCorrelationId(uint64_t id) {
   MuptiActivityApi::pushCorrelationID(id,
     MuptiActivityApi::CorrelationFlowType::Default);
-#ifdef HAS_ROCTRACER
-  // FIXME: bad design here
-  RoctracerActivityApi::pushCorrelationID(id,
-    RoctracerActivityApi::CorrelationFlowType::Default);
-#endif
 }
 
 void ActivityProfilerProxy::popCorrelationId() {
   MuptiActivityApi::popCorrelationID(
     MuptiActivityApi::CorrelationFlowType::Default);
-#ifdef HAS_ROCTRACER
-  RoctracerActivityApi::popCorrelationID(
-    RoctracerActivityApi::CorrelationFlowType::Default);
-#endif
 }
 
 void ActivityProfilerProxy::pushUserCorrelationId(uint64_t id) {

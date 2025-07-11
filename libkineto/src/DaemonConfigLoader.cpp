@@ -18,9 +18,11 @@
 namespace KINETO_NAMESPACE {
 
 // TODO : implications of this singleton being thread safe on forks?
-IpcFabricConfigClient* getConfigClient() {
-  static auto client = new IpcFabricConfigClient();
-  return client;
+IpcFabricConfigClient* DaemonConfigLoader::getConfigClient() {
+  if (!configClient){
+    configClient = std::make_unique<IpcFabricConfigClient>();
+  }
+  return configClient.get();
 }
 
 std::string DaemonConfigLoader::readBaseConfig() {

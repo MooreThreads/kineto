@@ -11,11 +11,15 @@
 #include <stdint.h>
 #include <string>
 
+#ifdef HAS_MUPTI
 #include <mupti.h>
+#endif
 
 namespace KINETO_NAMESPACE {
 
 int smCount(uint32_t deviceId);
+
+#ifdef HAS_MUPTI
 float blocksPerSm(const MUpti_ActivityKernel6& kernel);
 float warpsPerSm(const MUpti_ActivityKernel6& kernel);
 
@@ -33,5 +37,6 @@ float kernelOccupancy(
 
 // Return compute properties for each device as a json string
 const std::string& devicePropertiesJson();
+#endif
 
 } // namespace KINETO_NAMESPACE

@@ -17,6 +17,10 @@ enum MUpti_CallbackDomain {
 };
 enum MUpti_CallbackId {
   MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernel_v7000,
+
+#if defined(MUSA_VERSION) && (MUSA_VERSION >= 11080)
+  MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernelExC_v11060,
+#endif
   MUPTI_CBID_RESOURCE_CONTEXT_CREATED,
   MUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING,
 };

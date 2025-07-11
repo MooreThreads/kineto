@@ -13,7 +13,6 @@
 #include <mutex>
 #include <thread>
 
-#include "mupti_call.h"
 #include "Logger.h"
 #include "Config.h"
 #include "MusaUtil.h"
@@ -328,13 +327,13 @@ void MuptiActivityApi::enableMuptiActivities(
       MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION));
       externalCorrelationEnabled_ = true;
     }
-    if (activity == ActivityType::MUSA_SYNC) {
+    if (activity == ActivityType::CUDA_SYNC) {
       MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_SYNCHRONIZATION));
     }
-    if (activity == ActivityType::MUSA_RUNTIME) {
+    if (activity == ActivityType::PRIVATEUSE1_RUNTIME) {
       MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_RUNTIME));
     }
-    if (activity == ActivityType::MUSA_DRIVER) {
+    if (activity == ActivityType::PRIVATEUSE1_DRIVER) {
       MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_DRIVER));
     }
     if (activity == ActivityType::OVERHEAD) {
@@ -365,13 +364,13 @@ void MuptiActivityApi::disableMuptiActivities(
     if (activity == ActivityType::EXTERNAL_CORRELATION) {
       MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION));
     }
-    if (activity == ActivityType::MUSA_SYNC) {
+    if (activity == ActivityType::CUDA_SYNC) {
       MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_SYNCHRONIZATION));
     }
-    if (activity == ActivityType::MUSA_RUNTIME) {
+    if (activity == ActivityType::PRIVATEUSE1_RUNTIME) {
       MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_RUNTIME));
     }
-    if (activity == ActivityType::MUSA_DRIVER) {
+    if (activity == ActivityType::PRIVATEUSE1_DRIVER) {
       MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_DRIVER));
     }
     if (activity == ActivityType::OVERHEAD) {

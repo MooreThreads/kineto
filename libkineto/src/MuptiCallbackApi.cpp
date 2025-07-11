@@ -18,7 +18,7 @@
 #include <shared_mutex>
 
 #ifdef HAS_MUPTI
-#include "mupti_call.h"
+#include "MusaUtil.h"
 #endif
 #include "Logger.h"
 
@@ -109,7 +109,7 @@ void MuptiCallbackApi::__callback_switchboard(
           // TODO: MUPTI muptiFinalize is not yet implemented
           // MUPTI_CALL(muptiFinalize());
           initSuccess_ = false;
-          subscriber_ = 0;
+          subscriber_ = nullptr;
           MuptiActivityApi::singleton().teardownMupti_ = 0;
           MuptiActivityApi::singleton().finalizeCond_.notify_all();
           return;
