@@ -17,23 +17,25 @@
 
 namespace KINETO_NAMESPACE {
 
-bool gpuAvailable = false;
+bool musaGpuAvailable = false;
 
-bool isGpuAvailable() {
+bool isMUSAGpuAvailable() {
 #ifdef HAS_MUPTI
   static std::once_flag once;
   std::call_once(once, [] {
-    // determine GPU availability on the system
+    // determine MUSA GPU availability on the system
     musaError_t error;
     int deviceCount;
     error = musaGetDeviceCount(&deviceCount);
-    gpuAvailable = (error == musaSuccess && deviceCount > 0);
+    musaGpuAvailable = (error == musaSuccess && deviceCount > 0);
   });
-
-  return gpuAvailable;
-#else
-  return false;
 #endif
+  return musaGpuAvailable;
+}
+
+bool isGpuAvailable() {
+  bool musa = isMUSAGpuAvailable();
+  return musa;
 }
 
 } // namespace KINETO_NAMESPACE

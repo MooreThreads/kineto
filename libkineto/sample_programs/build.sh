@@ -12,7 +12,8 @@ g++  \
   kineto_mupti_profiler.cpp \
   -o main \
   kplay_mu.o \
-  /usr/local/lib/libkineto.a \
+  /home/pytorch/torch/lib/libkineto.a \
+  -I../include \
   -I/usr/local/musa/include \
   -I../third_party/fmt/include \
   -I/usr/local/include/kineto \

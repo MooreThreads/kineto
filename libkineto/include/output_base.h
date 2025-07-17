@@ -14,18 +14,25 @@
 #include <thread>
 #include <unordered_map>
 
-#include "ActivityBuffers.h"
+// TODO(T90238193)
+// @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
+#include "IActivityProfiler.h"
 #include "GenericTraceActivity.h"
 #include "ThreadUtil.h"
 #include "TraceSpan.h"
 
 namespace KINETO_NAMESPACE {
-  class Config;
+  struct ActivityBuffers;
 }
 
 namespace libkineto {
 
 using namespace KINETO_NAMESPACE;
+
+// Used by sortIndex to put GPU tracks at the bottom
+// of the trace timelines. The largest valid CPU PID is 4,194,304,
+// so 5000000 is enough to guarantee that GPU tracks are sorted after CPU.
+constexpr int64_t kExceedMaxPid = 5000000;
 
 class ActivityLogger {
  public:
@@ -60,7 +67,7 @@ class ActivityLogger {
   }
 
   virtual void finalizeTrace(
-      const KINETO_NAMESPACE::Config& config,
+      const Config& config,
       std::unique_ptr<ActivityBuffers> buffers,
       int64_t endTime,
       std::unordered_map<std::string, std::vector<std::string>>& metadata) = 0;
@@ -69,4 +76,4 @@ class ActivityLogger {
   ActivityLogger() = default;
 };
 
-} // namespace KINETO_NAMESPACE
+} // namespace libkineto

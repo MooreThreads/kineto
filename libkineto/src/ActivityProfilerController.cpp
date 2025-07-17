@@ -16,9 +16,6 @@
 #include "ActivityTrace.h"
 
 #include "MuptiActivityApi.h"
-#ifdef HAS_ROCTRACER
-#include "RoctracerActivityApi.h"
-#endif
 
 #include "ThreadUtil.h"
 #include "output_json.h"
@@ -45,14 +42,11 @@ void ActivityProfilerController::setLoggerCollectorFactory(
 ActivityProfilerController::ActivityProfilerController(
     ConfigLoader& configLoader, bool cpuOnly)
     : configLoader_(configLoader) {
-#ifdef HAS_ROCTRACER
-  profiler_ = std::make_unique<MuptiActivityProfiler>(
-      RoctracerActivityApi::singleton(), cpuOnly);
-#else
+  // Initialize ChromeTraceBaseTime first of all.
   profiler_ = std::make_unique<MuptiActivityProfiler>(
       MuptiActivityApi::singleton(), cpuOnly);
-#endif
   configLoader_.addHandler(ConfigLoader::ConfigKind::ActivityProfiler, this);
+  ChromeTraceBaseTime::singleton().init();
 
 #if !USE_GOOGLE_LOG
   if (loggerCollectorFactory()) {
@@ -361,6 +355,10 @@ void ActivityProfilerController::prepareTrace(const Config& config) {
 
   profiler_->configure(config, now);
   profiler_->setSyncProfilingRunning(true);
+}
+
+void ActivityProfilerController::toggleCollectionDynamic(const bool enable) {
+  profiler_->toggleCollectionDynamic(enable);
 }
 
 void ActivityProfilerController::startTrace() {

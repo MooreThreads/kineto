@@ -18,7 +18,7 @@
 
 using namespace kineto;
 
-static const std::string kFileName = "/tmp/kineto_playground_trace.json";
+static const std::string kFileName = "./kineto_playground_trace.json";
 
 int main() {
   warmup();

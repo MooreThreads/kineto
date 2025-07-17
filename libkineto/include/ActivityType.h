@@ -10,6 +10,7 @@
 
 #include <array>
 #include <string>
+#include <set>
 
 namespace libkineto {
 
@@ -24,23 +25,30 @@ enum class ActivityType {
     GPU_MEMSET,
     CONCURRENT_KERNEL, // on-device kernels
     EXTERNAL_CORRELATION,
-    MUSA_RUNTIME, // host side musa runtime events
-    MUSA_DRIVER, // host side musa driver events
+    CUDA_RUNTIME, // host side cuda runtime events
+    CUDA_DRIVER, // host side cuda driver events
     CPU_INSTANT_EVENT, // host side point-like events
     PYTHON_FUNCTION,
-    OVERHEAD, // MUPTI induced overhead events sampled from its overhead API.
+    OVERHEAD, // CUPTI induced overhead events sampled from its overhead API.
+    MTIA_RUNTIME, // host side MTIA runtime events
+    MTIA_CCP_EVENTS, // MTIA ondevice CCP events
+    CUDA_SYNC, // synchronization events between runtime and kernels
 
     // Optional Activity types
-    MUSA_SYNC, // synchronization events between runtime and kernels
     GLOW_RUNTIME, // host side glow runtime events
-    MTIA_RUNTIME, // host side MTIA runtime events
-    MUSA_PROFILER_RANGE, // MUPTI Profiler range for performance metrics
-    MTIA_CCP_EVENTS, // MTIA ondevice CCP events
+    CUDA_PROFILER_RANGE, // MUPTI Profiler range for performance metrics
     HPU_OP, // HPU host side runtime event
     XPU_RUNTIME, // host side xpu runtime events
+    COLLECTIVE_COMM, // collective communication
+    MTIA_WORKLOADD, // MTIA workloadd events
+
+    // PRIVATEUSE1 Activity types are used for custom backends.
+    // The corresponding device type is `DeviceType::PrivateUse1` in PyTorch.
+    PRIVATEUSE1_RUNTIME, // host side privateUse1 runtime events
+    PRIVATEUSE1_DRIVER, // host side privateUse1 driver events
 
     ENUM_COUNT, // This is to add buffer and not used for any profiling logic. Add your new type before it.
-    OPTIONAL_ACTIVITY_TYPE_START = MUSA_SYNC,
+    OPTIONAL_ACTIVITY_TYPE_START = GLOW_RUNTIME,
 };
 
 const char* toString(ActivityType t);

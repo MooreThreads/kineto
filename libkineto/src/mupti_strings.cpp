@@ -515,25 +515,25 @@ static const char* runtimeCbidNames[] = {
     "musaDeviceGetGraphMemAttribute",
     "musaDeviceSetGraphMemAttribute",
     // comment not implemented musa apis
-    /* "musaGraphNodeSetEnabled", */
-    /* "musaGraphNodeGetEnabled", */
-    /* "musaArrayGetMemoryRequirements", */
-    /* "musaMipmappedArrayGetMemoryRequirements", */
+    // "musaGraphNodeSetEnabled",
+    // "musaGraphNodeGetEnabled",
+    // "musaArrayGetMemoryRequirements",
+    // "musaMipmappedArrayGetMemoryRequirements",
     "musaLaunchKernelExC",
     "musaLaunchKernelExC_ptsz",
-    /* "musaOccupancyMaxPotentialClusterSize", */
-    /* "musaOccupancyMaxActiveClusters", */
-    /* "musaCreateTextureObject_v2", */
-    /* "musaGetTextureObjectTextureDesc_v2", */
-    /* "musaGraphInstantiateWithParams", */
-    /* "musaGraphInstantiateWithParams_ptsz", */
-    /* "musaGraphExecGetFlags", */
-    /* "musa439", */
-    /* "musaGetDeviceProperties_v2", */
-    /* "musaStreamGetId", */
-    /* "musaStreamGetId_ptsz", */
-    /* "musaGraphInstantiate", */
-    /* "musa444", */
+    // "musaOccupancyMaxPotentialClusterSize",
+    // "musaOccupancyMaxActiveClusters",
+    // "musaCreateTextureObject_v2",
+    // "musaGetTextureObjectTextureDesc_v2",
+    // "musaGraphInstantiateWithParams",
+    // "musaGraphInstantiateWithParams_ptsz",
+    // "musaGraphExecGetFlags",
+    // "musa439",
+    // "musaGetDeviceProperties_v2",
+    // "musaStreamGetId",
+    // "musaStreamGetId_ptsz",
+    // "musaGraphInstantiate",
+    // "musa444",
     "SIZE",
     "FORCE_INT"
 };

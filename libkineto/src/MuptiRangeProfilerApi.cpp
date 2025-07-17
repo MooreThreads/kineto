@@ -8,16 +8,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "ILoggerObserver.h"
 #ifdef HAS_MUPTI
 #include <mupti.h>
+#include "MusaUtil.h"
 // #include <nvperf_host.h>
 #endif // HAS_MUPTI
 #include <mutex>
 #include <unordered_map>
-
-#ifdef HAS_MUPTI
-#include "mupti_call.h"
-#endif
 
 #include "time_since_epoch.h"
 #include "Logger.h"
@@ -30,7 +28,6 @@
 #if HAS_MUPTI_RANGE_PROFILER
 #include <mupti.h>
 // #include <nvperf_host.h>
-#include "mupti_call.h"
 #endif // HAS_MUPTI_RANGE_PROFILER
 
 namespace KINETO_NAMESPACE {
@@ -143,15 +140,6 @@ void __trackMusaCtx(MUcontext ctx, uint32_t device_id, MUpti_CallbackId cbid) {
     VLOG(0) << "MUPTI Profiler observed MUSA Context created = "
             << ctx << " device id = " << device_id;
     active_devices.insert(device_id);
-  //  TODO Revisit
-#if 0
-    if constexpr (kSetCounterAvail) {
-      if (active_devices.size() == 1) {
-      MuptiRBProfilerSession::setCounterAvailabilityImage(
-          getCounterAvailiability(ctx));
-      }
-    }
-#endif
     ctx_to_dev[ctx] = device_id;
 
   } else if (cbid == MUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING) {
@@ -439,6 +427,8 @@ void MuptiRBProfilerSession::startInternal(
     LOG(WARNING) << "Failed to start MUPTI range profiler";
     initSuccess_ = false;
     return;
+  } else {
+    LOG(INFO) << "Successfully started MUPTI range profiler";
   }
 
   // Set counter configuration
@@ -451,6 +441,7 @@ void MuptiRBProfilerSession::startInternal(
   setConfigParams.passIndex = 0;
   setConfigParams.minNestingLevel = 1;
   setConfigParams.numNestingLevels = numNestingLevels_;
+  setConfigParams.targetNestingLevel = setConfigParams.minNestingLevel;
   status = MUPTI_CALL(muptiProfilerSetConfig(&setConfigParams));
 
   if (status != MUPTI_SUCCESS) {

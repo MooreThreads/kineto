@@ -38,10 +38,10 @@ struct MuptiActivity : public ITraceActivity {
   explicit MuptiActivity(const T* activity, const ITraceActivity* linked)
       : activity_(*activity), linked_(linked) {}
   int64_t timestamp() const override {
-    return nsToUs(unixEpochTimestamp(activity_.start));
+    return (unixEpochTimestamp(activity_.start));
   }
   int64_t duration() const override {
-    return nsToUs(activity_.end - activity_.start);
+    return (activity_.end - activity_.start);
   }
   // TODO(T107507796): Deprecate ITraceActivity
   int64_t correlationId() const override {return 0;}
@@ -67,7 +67,7 @@ struct RuntimeActivity : public MuptiActivity<MUpti_ActivityAPI> {
   int64_t correlationId() const override {return activity_.correlationId;}
   int64_t deviceId() const override {return processId();}
   int64_t resourceId() const override {return threadId_;}
-  ActivityType type() const override {return ActivityType::MUSA_RUNTIME;}
+  ActivityType type() const override {return ActivityType::PRIVATEUSE1_RUNTIME;}
   bool flowStart() const override;
   const std::string name() const override {return runtimeCbidName(activity_.cbid);}
   void log(ActivityLogger& logger) const override;
@@ -87,7 +87,7 @@ struct DriverActivity : public MuptiActivity<MUpti_ActivityAPI> {
   int64_t correlationId() const override {return activity_.correlationId;}
   int64_t deviceId() const override {return processId();}
   int64_t resourceId() const override {return threadId_;}
-  ActivityType type() const override {return ActivityType::MUSA_DRIVER;}
+  ActivityType type() const override {return ActivityType::PRIVATEUSE1_DRIVER;}
   bool flowStart() const override;
   const std::string name() const override;
   void log(ActivityLogger& logger) const override;
@@ -106,10 +106,10 @@ struct OverheadActivity : public MuptiActivity<MUpti_ActivityOverhead> {
       : MuptiActivity(activity, linked), threadId_(threadId) {}
 
   int64_t timestamp() const override {
-    return nsToUs(unixEpochTimestamp(activity_.start));
+    return (unixEpochTimestamp(activity_.start));
   }
   int64_t duration() const override {
-    return nsToUs(activity_.end - activity_.start);
+    return (activity_.end - activity_.start);
   }
   // TODO: Update this with PID ordering
   int64_t deviceId() const override {return -1;}
@@ -137,7 +137,7 @@ struct MusaSyncActivity : public MuptiActivity<MUpti_ActivitySynchronization> {
   int64_t correlationId() const override {return raw().correlationId;}
   int64_t deviceId() const override;
   int64_t resourceId() const override;
-  ActivityType type() const override {return ActivityType::MUSA_SYNC;}
+  ActivityType type() const override {return ActivityType::CUDA_SYNC;}
   bool flowStart() const override {return false;}
   const std::string name() const override;
   void log(ActivityLogger& logger) const override;
