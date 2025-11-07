@@ -85,6 +85,72 @@ const char* overheadKindString(
   }
 }
 
+const char* memoryAtomicKindString(MUpti_ActivityMemoryAtomicKind kind) {
+  switch (kind) {
+    case MUPTI_ACTIVITY_MEMCPY_ATOMIC_KIND_UNKNOWN:
+      return "Unknown";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_ADD32:
+      return "AtomicAdd32";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_ADD64:
+      return "AtomicAdd64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_UMIN32:
+      return "AtomicUMin32";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_UMIN64:
+      return "AtomicUMin64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_IMIN32:
+      return "AtomicIMin32";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_IMIN64:
+      return "AtomicIMin64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_UMAX32:
+      return "AtomicUMax32";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_UMAX64:
+      return "AtomicUMax64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_IMAX32:
+      return "AtomicIMax32";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_IMAX64:
+      return "AtomicIMax64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_ADD_F32:
+      return "AtomicAddF32";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_ADD_F64:
+      return "AtomicAddF64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_ADD_HF16:
+      return "AtomicAddHF16";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_KIND_ATOMIC_ADD_BF16:
+      return "AtomicAddBF16";
+    default:
+      break;
+  }
+  return "<unknown>";
+}
+
+const char* memoryAtomicValueKindString(MUpti_ActivityMemoryAtomicValueKind kind) {
+  switch (kind) {
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_UNKNOWN:
+      return "Unknown";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_ADD64:
+      return "AtomicAdd64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_SUB64:
+      return "AtomicSub64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_UMIN64:
+      return "AtomicUMin64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_IMIN64:
+      return "AtomicIMin64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_UMAX64:
+      return "AtomicUMax64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_IMAX64:
+      return "AtomicIMax64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_AND64:
+      return "AtomicAnd64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_OR64:
+      return "AtomicOr64";
+    case MUPTI_ACTIVITY_MEMORY_ATOMIC_VALUE_KIND_ATOMIC_XOR64:
+      return "AtomicXor64";
+    default:
+      break;
+  }
+  return "<unknown>";
+}
+
 
 
 static const char* runtimeCbidNames[] = {
@@ -514,26 +580,92 @@ static const char* runtimeCbidNames[] = {
     "musaDeviceGraphMemTrim",
     "musaDeviceGetGraphMemAttribute",
     "musaDeviceSetGraphMemAttribute",
-    // comment not implemented musa apis
-    // "musaGraphNodeSetEnabled",
-    // "musaGraphNodeGetEnabled",
-    // "musaArrayGetMemoryRequirements",
-    // "musaMipmappedArrayGetMemoryRequirements",
+    "musaGraphNodeSetEnabled",
+    "musaGraphNodeGetEnabled",
+    "musaArrayGetMemoryRequirements",
+    "musaMipmappedArrayGetMemoryRequirements",
     "musaLaunchKernelExC",
     "musaLaunchKernelExC_ptsz",
-    // "musaOccupancyMaxPotentialClusterSize",
-    // "musaOccupancyMaxActiveClusters",
-    // "musaCreateTextureObject_v2",
-    // "musaGetTextureObjectTextureDesc_v2",
-    // "musaGraphInstantiateWithParams",
-    // "musaGraphInstantiateWithParams_ptsz",
-    // "musaGraphExecGetFlags",
-    // "musa439",
-    // "musaGetDeviceProperties_v2",
-    // "musaStreamGetId",
-    // "musaStreamGetId_ptsz",
-    // "musaGraphInstantiate",
-    // "musa444",
+    "musaOccupancyMaxPotentialClusterSize",
+    "musaOccupancyMaxActiveClusters",
+    "musaCreateTextureObject_v2",
+    "musaGetTextureObjectTextureDesc_v2",
+    "musaGraphInstantiateWithParams",
+    "musaGraphInstantiateWithParams_ptsz",
+    "musaGraphExecGetFlags",
+    "musaGetKernel",
+    "musaGetDeviceProperties_v2",
+    "musaStreamGetId",
+    "musaStreamGetId_ptsz",
+    "musaGraphInstantiate",
+    "musaInitDevice",
+    "musaGraphAddNode",
+    "musaGraphNodeSetParams",
+    "musaGraphExecNodeSetParams",
+    "musaMemAdvise_v2",
+    "musaMemPrefetchAsync_v2",
+    "musaMemPrefetchAsync_v2_ptsz",
+    "musaFuncGetName",
+    "musaStreamBeginCaptureToGraph",
+    "musaStreamBeginCaptureToGraph_ptsz",
+    "musaGraphConditionalHandleCreate",
+    "musaGraphGetEdges_v2",
+    "musaGraphNodeGetDependencies_v2",
+    "musaGraphNodeGetDependentNodes_v2",
+    "musaGraphAddDependencies_v2",
+    "musaGraphRemoveDependencies_v2",
+    "musaGraphAddNode_v2",
+    "musaStreamGetCaptureInfo_v3",
+    "musaStreamGetCaptureInfo_v3_ptsz",
+    "musaStreamUpdateCaptureDependencies_v2",
+    "musaStreamUpdateCaptureDependencies_v2_ptsz",
+    "musaDeviceRegisterAsyncNotification",
+    "musaDeviceUnregisterAsyncNotification",
+    "musaFuncGetParamInfo",
+    "musaGetDriverEntryPointByVersion",
+    "musaGetDriverEntryPointByVersion_ptsz",
+    "musa470",
+    "musa471",
+    "musa472",
+    "musa473",
+    "musa474",
+    "musa475",
+    "musa476",
+    "musa477",
+    "musa478",
+    "musa479",
+    "musaStr",
+    "musaStreamGetDevice_ptsz",
+    "musaMemcpyBatchAsync",
+    "musaMemcpyBatchAsync_ptsz",
+    "musaMemcpy3DBatchAsync",
+    "musaMemcpy3DBatchAsync_ptsz",
+    "musaEventElapsedTime_v2",
+    "reserved0",
+    "reserved1",
+    "musaMemoryAtomicAsync",
+    "musaMemoryAtomicValueAsync",
+    "musaGraphAddMemAtomicNode",
+    "musaGraphAddMemAtomicValueNode",
+    "musaGraphAddMemWaitWriteNode",
+    "musaGraphMemAtomicNodeGetParams",
+    "musaGraphMemAtomicNodeSetParams",
+    "musaGraphMemAtomicValueNodeGetParams",
+    "musaGraphMemAtomicValueNodeSetParams",
+    "musaGraphMemWaitWriteNodeGetParams",
+    "musaGraphMemWaitWriteNodeSetParams",
+    "musaGraphExecMemAtomicNodeSetParams",
+    "musaGraphExecMemAtomicValueNodeSetParams",
+    "musaGraphExecMemWaitWriteNodeSetParams",
+    "musaGetExportTable",
+    "musaMemoryTransfer",
+    "musaMemoryTransfer_ptds",
+    "musaMemoryTransferAsync ",
+    "musaMemoryTransferAsync_ptsz",
+    "musaGraphAddMemTransferNode",
+    "musaGraphMemTransferNodeGetParams",
+    "musaGraphMemTransferNodeSetParams",
+    "musaGraphExecMemTransferNodeSetParams",
     "SIZE",
     "FORCE_INT"
 };

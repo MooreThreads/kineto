@@ -802,6 +802,14 @@ void MuptiActivityProfiler::handleMuptiActivity(
       handleGpuActivity(
           reinterpret_cast<const MUpti_ActivityMemcpy2*>(record), logger);
       break;
+    case MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC:
+      handleGpuActivity(
+          reinterpret_cast<const MUpti_ActivityMemoryAtomic*>(record), logger);
+      break;
+    case MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC_VALUE:
+      handleGpuActivity(
+          reinterpret_cast<const MUpti_ActivityMemoryAtomicValue*>(record), logger);
+      break;
     case MUPTI_ACTIVITY_KIND_MEMSET:
       handleGpuActivity(
           reinterpret_cast<const MUpti_ActivityMemset*>(record), logger);

@@ -405,7 +405,7 @@ void ChromeTraceLogger::handleActivity(
     }
     const auto& processGroupDesc =
         collectiveRecord->getMetadataValue(kProcessGroupDesc);
-    if (!processGroupName.empty()) {
+    if (!processGroupName.empty() && !processGroupDesc.empty()) {
       if (!arg_values.empty()) {
         arg_values.append(",");
       }
