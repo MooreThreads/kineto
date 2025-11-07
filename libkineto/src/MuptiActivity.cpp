@@ -140,6 +140,24 @@ inline std::string memcpyName(uint8_t kind, uint8_t src, uint8_t dst) {
       memoryKindString((MUpti_ActivityMemoryKind)dst));
 }
 
+
+
+inline std::string memoryAtomicName(uint8_t kind, uint8_t src, uint8_t dst) {
+  return fmt::format(
+      "Memcpy {} ({} -> {})",
+      memoryAtomicKindString((MUpti_ActivityMemoryAtomicKind)kind),
+      memoryKindString((MUpti_ActivityMemoryKind)src),
+      memoryKindString((MUpti_ActivityMemoryKind)dst));
+}
+
+inline std::string memoryAtomicValueName(uint8_t kind, uint8_t dst) {
+  return fmt::format(
+      "Memcpy {} ({})",
+      memoryAtomicValueKindString((MUpti_ActivityMemoryAtomicValueKind)kind),
+      memoryKindString((MUpti_ActivityMemoryKind)dst));
+}
+
+
 template<>
 inline ActivityType GpuActivity<MUpti_ActivityMemcpy4>::type() const {
   return ActivityType::GPU_MEMCPY;
@@ -192,6 +210,53 @@ inline const std::string GpuActivity<MUpti_ActivityMemcpy2>::metadataJson() cons
       memcpy.srcContextId, memcpy.contextId, memcpy.dstContextId,
       memcpy.streamId, memcpy.correlationId,
       memcpy.bytes, bandwidth(memcpy.bytes, memcpy.end - memcpy.start));
+  // clang-format on
+}
+
+template<>
+inline ActivityType GpuActivity<MUpti_ActivityMemoryAtomic>::type() const {
+  return ActivityType::GPU_MEMCPY;
+}
+
+template<>
+inline const std::string GpuActivity<MUpti_ActivityMemoryAtomic>::name() const {
+  return memoryAtomicName(raw().atomicKind, raw().srcKind, raw().dstKind);
+}
+
+template<>
+inline const std::string GpuActivity<MUpti_ActivityMemoryAtomic>::metadataJson() const {
+  const MUpti_ActivityMemoryAtomic& memcpy = raw();
+  // clang-format off
+  return fmt::format(R"JSON(
+      "device": {}, "context": {},
+      "stream": {}, "correlation": {},
+      "element count": {})JSON",
+      memcpy.deviceId, memcpy.contextId,
+      memcpy.streamId, memcpy.correlationId,
+      memcpy.elementCount);
+  // clang-format on
+}
+
+
+template<>
+inline ActivityType GpuActivity<MUpti_ActivityMemoryAtomicValue>::type() const {
+  return ActivityType::GPU_MEMCPY;
+}
+
+template<>
+inline const std::string GpuActivity<MUpti_ActivityMemoryAtomicValue>::name() const {
+  return memoryAtomicValueName(raw().atomicValueKind, raw().dstKind);
+}
+
+template<>
+inline const std::string GpuActivity<MUpti_ActivityMemoryAtomicValue>::metadataJson() const {
+  const MUpti_ActivityMemoryAtomicValue& memcpy = raw();
+  // clang-format off
+  return fmt::format(R"JSON(
+      "device": {}, "context": {},"stream": {},
+      "correlation": {}, "graph node": {}, "graph": {})JSON",
+      memcpy.deviceId, memcpy.contextId, memcpy.streamId,
+      memcpy.correlationId, memcpy.graphNodeId, memcpy.graphId);
   // clang-format on
 }
 
