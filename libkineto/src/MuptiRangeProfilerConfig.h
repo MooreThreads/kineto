@@ -23,13 +23,12 @@ class MuptiRangeProfilerConfig : public AbstractConfig {
  public:
   bool handleOption(const std::string& name, std::string& val) override;
 
-  void validate(
-      const std::chrono::time_point<std::chrono::system_clock>&
-      fallbackProfileStartTime) override {}
+  void validate(const std::chrono::time_point<std::chrono::system_clock>&
+                    fallbackProfileStartTime) override {}
 
   static MuptiRangeProfilerConfig& get(const Config& cfg) {
-    return dynamic_cast<MuptiRangeProfilerConfig&>(cfg.feature(
-          kMuptiProfilerConfigName));
+    return dynamic_cast<MuptiRangeProfilerConfig&>(
+        cfg.feature(kMuptiProfilerConfigName));
   }
 
   Config& parent() const {
@@ -57,8 +56,9 @@ class MuptiRangeProfilerConfig : public AbstractConfig {
   }
 
   void printActivityProfilerConfig(std::ostream& s) const override;
-
+  void setActivityDependentConfig() override;
   static void registerFactory();
+
  protected:
   AbstractConfig* cloneDerived(AbstractConfig& parent) const override {
     MuptiRangeProfilerConfig* clone = new MuptiRangeProfilerConfig(*this);
@@ -67,10 +67,10 @@ class MuptiRangeProfilerConfig : public AbstractConfig {
   }
 
  private:
- MuptiRangeProfilerConfig() = delete;
+  MuptiRangeProfilerConfig() = delete;
   explicit MuptiRangeProfilerConfig(Config& parent);
-  explicit MuptiRangeProfilerConfig(
-      const MuptiRangeProfilerConfig& other) = default;
+  explicit MuptiRangeProfilerConfig(const MuptiRangeProfilerConfig& other) =
+      default;
 
   // some defaults will depend on other configuration
   void setDefaults();

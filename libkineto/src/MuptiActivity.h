@@ -13,7 +13,7 @@
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
 #include "ITraceActivity.h"
-#include "GenericTraceActivity.h"
+#include "ApproximateClock.h"
 #include "MuptiActivityPlatform.h"
 #include "GenericTraceActivity.h"
 #include "ThreadUtil.h"
@@ -28,6 +28,10 @@ namespace KINETO_NAMESPACE {
 using namespace libkineto;
 struct TraceSpan;
 
+// This function allows us to activate/deactivate TSC MUPTI callbacks
+// via a killswitch
+bool& use_mupti_tsc();
+
 // These classes wrap the various MUPTI activity types
 // into subclasses of ITraceActivity so that they can all be accessed
 // using the ITraceActivity interface and logged via ActivityLogger.
@@ -37,18 +41,48 @@ template<class T>
 struct MuptiActivity : public ITraceActivity {
   explicit MuptiActivity(const T* activity, const ITraceActivity* linked)
       : activity_(*activity), linked_(linked) {}
+  // If we are running on Windows or are on a MUSA version < 11.6,
+  // we use the default system clock so no conversion needed same for all
+  // ifdefs below
   int64_t timestamp() const override {
+    //k-----a
+// #if 0
+//     return activity_.start;
+// #else
+//     if (use_mupti_tsc()) {
+//       return get_time_converter()(activity_.start);
+//     } else {
+//       return activity_.start;
+//     }
+// #endif
+//   }
+  //k-----b
     return (unixEpochTimestamp(activity_.start));
   }
+  //k------c
   int64_t duration() const override {
+  //k-----a
+// #if 0
+//     return activity_.end - activity_.start;
+// #else
+//     if (use_mupti_tsc()) {
+//       return get_time_converter()(activity_.end) -
+//           get_time_converter()(activity_.start);
+//     } else {
+//       return activity_.end - activity_.start;
+//     }
+// #endif
+  //k------b
     return (activity_.end - activity_.start);
+
+  //k-------c
   }
   // TODO(T107507796): Deprecate ITraceActivity
   int64_t correlationId() const override {return 0;}
   int32_t getThreadId() const override {return 0;}
   const ITraceActivity* linkedActivity() const override {return linked_;}
   int flowType() const override {return kLinkAsyncCpuGpu;}
-  int flowId() const override {return correlationId();}
+  int64_t flowId() const override {return correlationId();}
   const T& raw() const {return activity_;}
   const TraceSpan* traceSpan() const override {return nullptr;}
 
@@ -106,11 +140,39 @@ struct OverheadActivity : public MuptiActivity<MUpti_ActivityOverhead> {
       : MuptiActivity(activity, linked), threadId_(threadId) {}
 
   int64_t timestamp() const override {
+//k---------a
+// #if 0
+//     return activity_.start;
+// #else
+//     if (use_mupti_tsc()) {
+//       return get_time_converter()(activity_.start);
+//     } else {
+//       return activity_.start;
+//     }
+// #endif
+//   }
+//k---------b
     return (unixEpochTimestamp(activity_.start));
   }
+
+//k---------c
   int64_t duration() const override {
+//k---------a
+// #if 0
+//     return activity_.end - activity_.start;
+// #else
+//     if (use_mupti_tsc()) {
+//       return get_time_converter()(activity_.end) -
+//           get_time_converter()(activity_.start);
+//     } else {
+//       return activity_.end - activity_.start;
+//     }
+// #endif
+//   }
+//k---------b
     return (activity_.end - activity_.start);
   }
+//k---------c
   // TODO: Update this with PID ordering
   int64_t deviceId() const override {return -1;}
   int64_t resourceId() const override {return threadId_;}

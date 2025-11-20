@@ -10,10 +10,9 @@
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
-#include "Logger.h"
-#include "ConfigLoader.h"
 #include "DaemonConfigLoader.h"
-#include "IpcFabricConfigClient.h"
+#include "ConfigLoader.h"
+#include "Logger.h"
 
 namespace KINETO_NAMESPACE {
 
@@ -27,15 +26,17 @@ IpcFabricConfigClient* DaemonConfigLoader::getConfigClient() {
 
 std::string DaemonConfigLoader::readBaseConfig() {
   LOG(INFO) << "Reading base config";
-  auto configClient = getConfigClient();
-  if (!configClient) {
+  auto configClient_2 = getConfigClient();
+  if (!configClient_2) {
     LOG_EVERY_N(WARNING, 10) << "Failed to read config: No dyno config client";
     return "";
   }
-  return configClient->getLibkinetoBaseConfig();
+  return configClient_2->getLibkinetoBaseConfig();
 }
 
-std::string DaemonConfigLoader::readOnDemandConfig(bool events, bool activities, int currentRunloopState) {
+std::string DaemonConfigLoader::readOnDemandConfig(
+    bool events,
+    bool activities) {
   auto configClient = getConfigClient();
   if (!configClient) {
     LOG_EVERY_N(WARNING, 10) << "Failed to read config: No dyno config client";
@@ -48,7 +49,7 @@ std::string DaemonConfigLoader::readOnDemandConfig(bool events, bool activities,
   if (activities) {
     config_type |= int(LibkinetoConfigType::ACTIVITIES);
   }
-  return configClient->getLibkinetoOndemandConfig(config_type, currentRunloopState);
+  return configClient->getLibkinetoOndemandConfig(config_type);
 }
 
 int DaemonConfigLoader::gpuContextCount(uint32_t device) {

@@ -209,18 +209,13 @@ EventProfilerController::EventProfilerController(
     ConfigLoader& configLoader,
     detail::HeartbeatMonitor& heartbeatMonitor)
     : configLoader_(configLoader), heartbeatMonitor_(heartbeatMonitor) {
-  // TODO: MUPTI MuptiEventApi & MuptiMetricApi is not yet implemented
-  // auto mupti_events = std::make_unique<MuptiEventApi>(context);
-  // auto mupti_metrics =
-  //     std::make_unique<MuptiMetricApi>(mupti_events->device());
-  configLoader_.addHandler(
-      ConfigLoader::ConfigKind::EventProfiler, this);
+  auto mupti_events = std::make_unique<MuptiEventApi>(context);
+  auto mupti_metrics = std::make_unique<MuptiMetricApi>(mupti_events->device());
+  configLoader_.addHandler(ConfigLoader::ConfigKind::EventProfiler, this);
   auto config = configLoader.getConfigCopy();
   profiler_ = std::make_unique<EventProfiler>(
-      nullptr,
-      nullptr,
-      // std::move(mupti_events),
-      // std::move(mupti_metrics),
+      std::move(mupti_events),
+      std::move(mupti_metrics),
       loggers(*config),
       onDemandLoggers(*config));
   profilerThread_ = std::make_unique<std::thread>(
@@ -282,11 +277,6 @@ void EventProfilerController::acceptConfig(const Config& config) {
   }
   newOnDemandConfig_ = config.clone();
   LOG(INFO) << "Received new on-demand config";
-}
-
-int EventProfilerController::getCurrentRunloopState() {
-  VLOG(1) << "getCurrentRunloopState";
-  return -1;
 }
 
 bool EventProfilerController::enableForDevice(Config& cfg) {

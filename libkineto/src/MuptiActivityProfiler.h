@@ -11,7 +11,6 @@
 #include <atomic>
 #include <chrono>
 #include <deque>
-#include <condition_variable>
 #include <list>
 #include <map>
 #include <memory>
@@ -87,7 +86,9 @@ struct ConfigDerivedState final {
   int64_t profileStartIteration() const { return profileStartIter_; }
   int64_t profileEndIteration() const { return profileEndIter_; }
   bool isProfilingByIteration() const { return profilingByIter_; }
-
+  bool isPerThreadBufferEnabled() const {
+    return perThreadBufferEnabled_;
+  }
  private:
   std::set<ActivityType> profileActivityTypes_;
   // Start and end time used for triggering and stopping profiling
@@ -98,6 +99,7 @@ struct ConfigDerivedState final {
   int64_t profileStartIter_{-1};
   int64_t profileEndIter_{-1};
   bool profilingByIter_{false};
+  bool perThreadBufferEnabled_{false};
 };
 
 namespace detail {
@@ -112,54 +114,9 @@ class MuptiActivityProfiler {
   MuptiActivityProfiler(RoctracerActivityApi& rai, bool cpuOnly);
   MuptiActivityProfiler(const MuptiActivityProfiler&) = delete;
   MuptiActivityProfiler& operator=(const MuptiActivityProfiler&) = delete;
-
+  ~MuptiActivityProfiler();
   bool isActive() const {
     return currentRunloopState_ != RunloopState::WaitForRequest;
-  }
-
-  bool isOnDemandProfilingPending() const {
-    return onDemandProfilingPending_;
-  }
-
-  void setOnDemandProfilingPending(bool b) {
-    onDemandProfilingPending_ = b;
-  }
-
-  bool isOnDemandProfilingRunning() const {
-    return onDemandProfilingRunning_;
-  }
-
-  void setOnDemandProfilingRunning(bool b) {
-    onDemandProfilingRunning_ = b;
-  }
-
-  bool isSyncProfilingRunning() const {
-    return syncProfilingRunning_;
-  }
-
-  void setSyncProfilingRunning(bool b) {
-    syncProfilingRunning_ = b;
-  }
-
-  int getCurrentRunloopState() const {
-    if (onDemandProfilingPending_) {
-      return 4; // Pending
-    }
-    if (onDemandProfilingRunning_) {
-      switch (currentRunloopState_) {
-        case RunloopState::WaitForRequest:
-          return 1; // Consider as warmup because onDemandProfilingRunning_ is true
-        case RunloopState::Warmup:
-          return 1;
-        case RunloopState::CollectTrace:
-          return 2;
-        case RunloopState::ProcessTrace:
-          return 3;
-      }
-    }
-    // onDemandProfilingPending_ and onDemandProfilingRunning_ both false,
-    // so, new on-demand profiling can be accepted now, ignore syncProfilingRunning_ status.
-    return 0; // WaitForRequest
   }
 
   // Invoke at a regular interval to perform profiling activities.
@@ -183,36 +140,44 @@ class MuptiActivityProfiler {
 
   inline void setGpuActivityPresent(bool val){
     gpuActivityPresent_ = val;
-  } 
+  }
 
-  inline bool gpuActivityPresent(){
+  inline bool gpuActivityPresent() const {
     return gpuActivityPresent_;
   }
 
-  inline bool traceNonEmpty(){
+  inline bool traceNonEmpty() const {
     return cpuActivityPresent_ || gpuActivityPresent_;
   }
 
   // Synchronous control API
   void startTrace(
       const std::chrono::time_point<std::chrono::system_clock>& now) {
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
     startTraceInternal(now);
   }
 
-  void stopTrace(const std::chrono::time_point<std::chrono::system_clock>& now) {
-    std::lock_guard<std::mutex> guard(mutex_);
+  void stopTrace(
+      const std::chrono::time_point<std::chrono::system_clock>& now) {
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
     stopTraceInternal(now);
   }
 
+  // Collect CPU and GPU traces
+  void collectTrace(
+      bool collection_done,
+      const std::chrono::time_point<std::chrono::system_clock>& now);
+
+  // Ensure collectTrace is done
+  void ensureCollectTraceDone();
   // Process CPU and GPU traces
   void processTrace(ActivityLogger& logger) {
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
     processTraceInternal(logger);
   }
 
   void reset() {
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
     resetInternal();
   }
 
@@ -238,7 +203,7 @@ class MuptiActivityProfiler {
     // as key, because that's what MUPTI records.
     int32_t tid = threadId();
     int32_t pid = processId();
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
     recordThreadInfo(sysTid, tid, pid);
   }
 
@@ -256,13 +221,17 @@ class MuptiActivityProfiler {
   }
 
   void addMetadata(const std::string& key, const std::string& value) {
-    std::lock_guard<std::mutex> guard(mutex_);
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
     metadata_[key] = value;
   }
 
-  void addChildActivityProfiler(
-      std::unique_ptr<IActivityProfiler> profiler) {
-    std::lock_guard<std::mutex> guard(mutex_);
+  void addVersionMetadata(const std::string& key, const std::string& value) {
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
+    versionMetadata_[key] = value;
+  }
+
+  void addChildActivityProfiler(std::unique_ptr<IActivityProfiler> profiler) {
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
     profilers_.push_back(std::move(profiler));
   }
 
@@ -395,14 +364,15 @@ class MuptiActivityProfiler {
       const std::unordered_map<int64_t, int64_t>& correlationMap);
 
   const ITraceActivity* cpuActivity(int32_t correlationId);
+  void updateGpuNetSpan(const ITraceActivity& gpuOp);
+  bool outOfRange(const ITraceActivity& act);
+  void handleGpuActivity(const ITraceActivity& act, ActivityLogger* logger);
 
 #ifdef HAS_MUPTI
   // Process generic MUPTI activity
   void handleMuptiActivity(const MUpti_Activity* record, ActivityLogger* logger);
 
   // Process specific GPU activity types
-  void updateGpuNetSpan(const ITraceActivity& gpuOp);
-  bool outOfRange(const ITraceActivity& act);
   void handleCorrelationActivity(
       const MUpti_ActivityExternalCorrelation* correlation);
   void handleRuntimeActivity(
@@ -413,8 +383,7 @@ class MuptiActivityProfiler {
       const MUpti_ActivityOverhead* activity, ActivityLogger* logger);
   void handleMusaEventActivity(const MUpti_ActivityMusaEvent* activity);
   void handleMusaSyncActivity(
-      const MUpti_ActivitySynchronization* activity, ActivityLogger* logger);
-  void handleGpuActivity(const ITraceActivity& act,
+      const MUpti_ActivitySynchronization* activity,
       ActivityLogger* logger);
   template <class T>
   void handleGpuActivity(const T* act, ActivityLogger* logger);
@@ -435,6 +404,8 @@ class MuptiActivityProfiler {
   }
 
   void checkTimestampOrder(const ITraceActivity* act1);
+
+  bool getCollectTraceState();
 
   // On-demand Request Config (should not be modified)
   // TODO: remove this config_, dependency needs to be removed from finalizeTrace.
@@ -491,16 +462,19 @@ class MuptiActivityProfiler {
   // ***************************************************************************
 
   // Mutex to protect non-atomic access to below state
-  std::mutex mutex_;
+  std::recursive_mutex mutex_;
+
+  // Add a thread to collect both cpu and gpu traces in case torch main thread
+  // is blocked when profiling by iterations is enabled. Issue #953 shows
+  // details.
+  std::unique_ptr<std::thread> collectTraceThread_{nullptr};
+
+  // Add a mutex to protect state for CollectTrace
+  std::recursive_mutex collectTraceStateMutex_;
+  bool isCollectingTrace{false};
 
   // Runloop phase
   std::atomic<RunloopState> currentRunloopState_{RunloopState::WaitForRequest};
-  // On-Demand profiling pending status
-  std::atomic_bool onDemandProfilingPending_{false};
-  // On-Demand profiling running status
-  std::atomic_bool onDemandProfilingRunning_{false};
-  // In the process of sync api profiling (already executed prepareTrace and NOT finished yet).
-  std::atomic_bool syncProfilingRunning_{false};
 
   // Keep track of the start time and end time for the trace collected.
   // External threads using startTrace need to manually stopTrace. Part of the mock tests.
@@ -552,6 +526,9 @@ class MuptiActivityProfiler {
 
   // Trace metadata
   std::unordered_map<std::string, std::string> metadata_;
+
+  // Version metadata
+  std::unordered_map<std::string, std::string> versionMetadata_;
 
   // child activity profilers
   std::vector<std::unique_ptr<IActivityProfiler>> profilers_;

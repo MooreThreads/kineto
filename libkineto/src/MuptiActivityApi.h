@@ -11,7 +11,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
-#include <list>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -52,7 +51,7 @@ class MuptiActivityApi {
   MuptiActivityApi(const MuptiActivityApi&) = delete;
   MuptiActivityApi& operator=(const MuptiActivityApi&) = delete;
 
-  virtual ~MuptiActivityApi() {}
+  virtual ~MuptiActivityApi() = default;
 
   static MuptiActivityApi& singleton();
 
@@ -60,9 +59,10 @@ class MuptiActivityApi {
   static void popCorrelationID(CorrelationFlowType type);
 
   void enableMuptiActivities(
-    const std::set<ActivityType>& selected_activities);
+      const std::set<ActivityType>& selected_activities,
+      bool enablePerThreadBuffers = false);
   void disableMuptiActivities(
-    const std::set<ActivityType>& selected_activities);
+      const std::set<ActivityType>& selected_activities);
   void clearActivities();
   void teardownContext();
 
@@ -70,7 +70,7 @@ class MuptiActivityApi {
 
   virtual const std::pair<int, size_t> processActivities(
       MuptiActivityBufferMap&,
-      std::function<void(const MUpti_Activity*)> handler);
+      const std::function<void(const MUpti_Activity*)>& handler);
 
   void setMaxBufferSize(int size);
   void setDeviceBufferSize(size_t size);
@@ -96,9 +96,11 @@ class MuptiActivityApi {
   int processActivitiesForBuffer(
       uint8_t* buf,
       size_t validSize,
-      std::function<void(const MUpti_Activity*)> handler);
-  static void MUPTIAPI
-  bufferRequestedTrampoline(uint8_t** buffer, size_t* size, size_t* maxNumRecords);
+      const std::function<void(const MUpti_Activity*)>& handler);
+  static void MUPTIAPI bufferRequestedTrampoline(
+      uint8_t** buffer,
+      size_t* size,
+      size_t* maxNumRecords);
   static void MUPTIAPI bufferCompletedTrampoline(
       MUcontext ctx,
       uint32_t streamId,

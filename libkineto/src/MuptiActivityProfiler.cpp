@@ -5,15 +5,13 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-#include "ApproximateClock.h"
-#include "MuptiActivityProfiler.h"
 
+#include "MuptiActivityProfiler.h"
 #include <fmt/format.h>
-#include <time.h>
+#include <fmt/ranges.h>
 #include <atomic>
 #include <cstdint>
 #include <functional>
-#include <iomanip>
 #include <optional>
 #include <string>
 #include <thread>
@@ -21,6 +19,7 @@
 #include <unordered_map>
 #include <vector>
 #include <limits>
+#include "ApproximateClock.h"
 
 #ifdef HAS_MUPTI
 #include <mupti.h>
@@ -28,12 +27,13 @@
 #endif
 
 #include "Config.h"
+#include "MusaDeviceProperties.h"
+
 #include "time_since_epoch.h"
 #ifdef HAS_MUPTI
 #include "MuptiActivity.h"
 #include "MuptiActivity.cpp"
 #include "MuptiActivityApi.h"
-#include "MuptiActivityPlatform.h"
 #endif // HAS_MUPTI
 #include "output_base.h"
 #include "ActivityBuffers.h"
@@ -42,7 +42,6 @@
 #include "ThreadUtil.h"
 
 using namespace std::chrono;
-using namespace libkineto;
 using std::string;
 
 struct CtxEventPair {
@@ -111,6 +110,7 @@ ConfigDerivedState::ConfigDerivedState(const Config& config) {
   profileDuration_ = config.activitiesDuration();
   profileWarmupDuration_ = config.activitiesWarmupDuration();
   profilingByIter_ = config.hasProfileStartIteration();
+  perThreadBufferEnabled_ = config.perThreadBufferEnabled();
   if (profilingByIter_) {
     profileStartIter_ = config.profileStartIteration();
     profileEndIter_ = profileStartIter_ + config.activitiesRunIterations();
@@ -185,9 +185,15 @@ std::ostream& operator<<(std::ostream& oss, const MuptiActivityProfiler::ErrorCo
   return oss;
 }
 
+MuptiActivityProfiler::~MuptiActivityProfiler() {
+  if (collectTraceThread_ && collectTraceThread_->joinable()) {
+    collectTraceThread_->join();
+  }
+}
+
 void MuptiActivityProfiler::transferCpuTrace(
     std::unique_ptr<libkineto::CpuTraceBuffer> cpuTrace) {
-  std::lock_guard<std::mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   const string& trace_name = cpuTrace->span.name;
   if (currentRunloopState_ != RunloopState::CollectTrace &&
       currentRunloopState_ != RunloopState::ProcessTrace) {
@@ -237,6 +243,11 @@ void MuptiActivityProfiler::logMusaVersions() {
       "musa_runtime_version", std::to_string(musaRuntimeVersion));
   LOGGER_OBSERVER_ADD_METADATA(
       "musa_driver_version", std::to_string(musaDriverVersion));
+  addVersionMetadata("mupti_version", std::to_string(muptiVersion));
+  addVersionMetadata(
+      "musa_runtime_version", std::to_string(musaRuntimeVersion));
+  addVersionMetadata("musa_driver_version", std::to_string(musaDriverVersion));
+
 }
 #endif
 
@@ -244,7 +255,24 @@ void MuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
   LOG(INFO) << "Processing " << traceBuffers_->cpu.size() << " CPU buffers";
   VLOG(0) << "Profile time range: " << captureWindowStartTime_ << " - "
           << captureWindowEndTime_;
-  logger.handleTraceStart(metadata_);
+  for (auto& pair : versionMetadata_) {
+    addMetadata(pair.first, pair.second);
+  }
+  std::vector<std::string> device_properties;
+  if (auto props = devicePropertiesJson(); !props.empty()) {
+    device_properties.push_back(props);
+  }
+  for (const auto& session : sessions_) {
+    if (auto props = session->getDeviceProperties(); !props.empty()) {
+      if (std::find(
+              device_properties.begin(), device_properties.end(), props) ==
+          device_properties.end()) {
+        device_properties.push_back(props);
+      }
+    }
+  }
+  logger.handleTraceStart(
+      metadata_, fmt::format("{}", fmt::join(device_properties, ",")));
   setCpuActivityPresent(false);
   setGpuActivityPresent(false);
   for (auto& cpu_trace : traceBuffers_->cpu) {
@@ -266,7 +294,7 @@ void MuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
       addOverheadSample(flushOverhead_, mupti_.flushOverhead);
     }
     if (traceBuffers_->gpu) {
-      auto count_and_size = mupti_.processActivities(
+      const auto count_and_size = mupti_.processActivities(
           *traceBuffers_->gpu,
           std::bind(
               &MuptiActivityProfiler::handleMuptiActivity,
@@ -292,15 +320,24 @@ void MuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
   }
 #endif // HAS_MUPTI
   if (!traceNonEmpty()) {
-    LOG(WARNING) << "No Valid Trace Events (CPU/GPU) found. Outputting empty trace.";
+    LOG(WARNING) << kEmptyTrace;
   }
 
   for (const auto& session : sessions_) {
     LOG(INFO) << "Processing child profiler trace";
-    session->processTrace(logger);
+    // cpuActivity() function here is used to get the linked cpuActivity for
+    // session's activities. Passing captureWindowStartTime_ and
+    // captureWindowEndTime_ in order to specify the range of activities that
+    // need to be processed.
+    session->processTrace(
+        logger,
+        std::bind(
+            &MuptiActivityProfiler::cpuActivity, this, std::placeholders::_1),
+        captureWindowStartTime_,
+        captureWindowEndTime_);
   }
 
-  LOG(INFO) << "Error info: " << ecs_;
+  LOG(INFO) << "Record counts: " << ecs_;
 
   finalizeTrace(*config_, logger);
 }
@@ -327,8 +364,6 @@ void MuptiActivityProfiler::processCpuTrace(
       recordTraceSpan(cpuTrace.span, cpuTrace.gpuOpCount);
   TraceSpan& cpu_span = span_pair.first;
   for (auto const& act : cpuTrace.activities) {
-    LOG(VERBOSE) << "CPU OP correlation id: " << act->correlationId()
-                 << " name: " << act->activityName;
     VLOG(2) << act->correlationId() << ": OP " << act->activityName;
     if (derivedConfig_->profileActivityTypes().count(act->type())) {
       static_assert(
@@ -337,6 +372,13 @@ void MuptiActivityProfiler::processCpuTrace(
               const std::unique_ptr<GenericTraceActivity>>::value,
           "handleActivity is unsafe and relies on the caller to maintain not "
           "only lifetime but also address stability.");
+      if (act->type() == ActivityType::USER_ANNOTATION &&
+          act->duration() <= 0) {
+        act->endTime = captureWindowEndTime_;
+        act->addMetadata("finished", "false");
+      } else {
+        act->addMetadata("finished", "true");
+      }
       logger.handleActivity(*act);
     }
     clientActivityTraceMap_[act->correlationId()] = &span_pair;
@@ -350,9 +392,6 @@ void MuptiActivityProfiler::processCpuTrace(
 #ifdef HAS_MUPTI
 inline void MuptiActivityProfiler::handleCorrelationActivity(
     const MUpti_ActivityExternalCorrelation* correlation) {
-  LOG(VERBOSE) << "handleCorrelationActivity kind: " << correlation->externalKind
-               << " correlation id: " << correlation->correlationId
-               << " external id: " << correlation->externalId;
   if (correlation->externalKind == MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0) {
     cpuCorrelationMap_[correlation->correlationId] = correlation->externalId;
   } else if (
@@ -382,22 +421,23 @@ static GenericTraceActivity createUserGpuSpan(
 }
 
 void MuptiActivityProfiler::GpuUserEventMap::insertOrExtendEvent(
-    const ITraceActivity& userActivity,
-    const ITraceActivity& gpuActivity) {
-  StreamKey key(gpuActivity.deviceId(), gpuActivity.resourceId());
+    const ITraceActivity& cpuTraceActivity,
+    const ITraceActivity& gpuTraceActivity) {
+  StreamKey key(gpuTraceActivity.deviceId(), gpuTraceActivity.resourceId());
   CorrelationSpanMap& correlationSpanMap = streamSpanMap_[key];
-  auto it = correlationSpanMap.find(userActivity.correlationId());
+  auto it = correlationSpanMap.find(cpuTraceActivity.correlationId());
   if (it == correlationSpanMap.end()) {
     auto it_success = correlationSpanMap.insert(
-        {userActivity.correlationId(),
-         createUserGpuSpan(userActivity, gpuActivity)});
+        {cpuTraceActivity.correlationId(),
+         createUserGpuSpan(cpuTraceActivity, gpuTraceActivity)});
     it = it_success.first;
   }
   GenericTraceActivity& span = it->second;
-  if (gpuActivity.timestamp() < span.startTime || span.startTime == 0) {
-    span.startTime = gpuActivity.timestamp();
+  if (gpuTraceActivity.timestamp() < span.startTime || span.startTime == 0) {
+    span.startTime = gpuTraceActivity.timestamp();
   }
-  int64_t gpu_activity_end = gpuActivity.timestamp() + gpuActivity.duration();
+  int64_t gpu_activity_end =
+      gpuTraceActivity.timestamp() + gpuTraceActivity.duration();
   if (gpu_activity_end > span.endTime) {
     span.endTime = gpu_activity_end;
   }
@@ -418,12 +458,11 @@ void MuptiActivityProfiler::GpuUserEventMap::logEvents(ActivityLogger* logger) {
   }
 }
 
-#ifdef HAS_MUPTI
 inline bool MuptiActivityProfiler::outOfRange(const ITraceActivity& act) {
   bool out_of_range = act.timestamp() < captureWindowStartTime_ ||
       (act.timestamp() + act.duration()) > captureWindowEndTime_;
   if (out_of_range) {
-    LOG(INFO) << "TraceActivity outside of profiling window: " << act.name()
+    VLOG(2) << "TraceActivity outside of profiling window: " << act.name()
             << " (" << act.timestamp() << " < " << captureWindowStartTime_
             << " or " << (act.timestamp() + act.duration()) << " > "
             << captureWindowEndTime_;
@@ -432,13 +471,15 @@ inline bool MuptiActivityProfiler::outOfRange(const ITraceActivity& act) {
   return out_of_range;
 }
 
+#ifdef HAS_MUPTI
 inline static bool isBlockListedRuntimeCbid(MUpti_CallbackId cbid) {
   // Some MUSA calls that are very frequent and also not very interesting.
   // Filter these out to reduce trace size.
   if (cbid == MUPTI_RUNTIME_TRACE_CBID_musaGetDevice_v3020 ||
       cbid == MUPTI_RUNTIME_TRACE_CBID_musaSetDevice_v3020 ||
       cbid == MUPTI_RUNTIME_TRACE_CBID_musaGetLastError_v3020 ||
-      // Support musaEventRecord and musaEventSynchronize, revisit if others are needed
+      // Support musaEventRecord and musaEventSynchronize, revisit if others are
+      // needed
       cbid == MUPTI_RUNTIME_TRACE_CBID_musaEventCreate_v3020 ||
       cbid == MUPTI_RUNTIME_TRACE_CBID_musaEventCreateWithFlags_v3020 ||
       cbid == MUPTI_RUNTIME_TRACE_CBID_musaEventDestroy_v3020) {
@@ -455,9 +496,6 @@ void MuptiActivityProfiler::handleRuntimeActivity(
     ecs_.blocklisted_runtime_events++;
     return;
   }
-  LOG(VERBOSE) << "Runtime OP correlation id=" << activity->correlationId
-          << " cbid=" << activity->cbid
-          << " tid=" << activity->threadId;
   VLOG(2) << activity->correlationId
           << ": MUPTI_ACTIVITY_KIND_RUNTIME, cbid=" << activity->cbid
           << " tid=" << activity->threadId;
@@ -486,9 +524,6 @@ void MuptiActivityProfiler::handleDriverActivity(
     // XXX should we count other driver events?
     return;
   }
-  LOG(VERBOSE) << "Driver OP correlation id=" << activity->correlationId
-          << " cbid=" << activity->cbid
-          << " tid=" << activity->threadId;
   VLOG(2) << activity->correlationId
           << ": MUPTI_ACTIVITY_KIND_DRIVER, cbid=" << activity->cbid
           << " tid=" << activity->threadId;
@@ -556,7 +591,7 @@ void MuptiActivityProfiler::handleMusaEventActivity(
 void MuptiActivityProfiler::handleMusaSyncActivity(
     const MUpti_ActivitySynchronization* activity,
     ActivityLogger* logger) {
-  LOG(VERBOSE) << "Musa Sync OP"
+  VLOG(2) << ": MUPTI_ACTIVITY_KIND_SYNCHRONIZATION"
           << " type=" << syncTypeString(activity->type)
           << " corrId=" << activity->correlationId
           << " streamId=" << activity->streamId
@@ -565,30 +600,10 @@ void MuptiActivityProfiler::handleMusaSyncActivity(
 
   if (!config_->activitiesMusaSyncWaitEvents() &&
       isWaitEventSync(activity->type)) {
-    printf("in handleMusaSyncActivity, activitiesMusaSyncWaitEvents\n");
     return;
   }
 
   auto device_id = contextIdtoDeviceId(activity->contextId);
-
-  // Event Sync events tend to be noisy, only pass these events if
-  // there was some GPU kernel/memcopy/memset observed on it till now.
-  if (isEventSync(activity->type) &&
-      (seenDeviceStreams_.find({device_id, activity->streamId}) ==
-       seenDeviceStreams_.end())) {
-    VLOG(2) << "Skipping Event Sync (corrId=" << activity->correlationId
-            << ") as no kernels have run yet on stream = " << activity->streamId;
-    return;
-  }
-
-  if (int32_t(activity->streamId) != -1) {
-    recordStream(device_id, activity->streamId, "");
-  } else {
-    recordDevice(device_id);
-  }
-
-  const ITraceActivity* linked =
-      linkedActivity(activity->correlationId, cpuCorrelationMap_);
   int32_t src_stream = -1, src_corrid = -1;
 
   if (isEventSync(activity->type)) {
@@ -724,7 +739,7 @@ inline void MuptiActivityProfiler::handleGpuActivity(
   }
   checkTimestampOrder(&act);
   VLOG(2) << act.correlationId() << ": " << act.name();
-  LOG(VERBOSE) << "GPU OP correlation id=" << act.correlationId() << " name=" << act.name();
+
   recordStream(act.deviceId(), act.resourceId(), "");
   seenDeviceStreams_.insert({act.deviceId(), act.resourceId()});
 
@@ -781,6 +796,7 @@ void MuptiActivityProfiler::handleMuptiActivity(
           reinterpret_cast<const MUpti_ActivityAPI*>(record), logger);
       break;
     case MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
+      //TODO(MUpti_ActivityKernel6->MUpti_ActivityKernel4)
       handleGpuActivity(
           reinterpret_cast<const MUpti_ActivityKernel6*>(record), logger);
       updateCtxToDeviceId(
@@ -796,7 +812,7 @@ void MuptiActivityProfiler::handleMuptiActivity(
       break;
     case MUPTI_ACTIVITY_KIND_MEMCPY:
       handleGpuActivity(
-          reinterpret_cast<const MUpti_ActivityMemcpy4*>(record), logger);
+          reinterpret_cast<const MUpti_ActivityMemcpy*>(record), logger);
       break;
     case MUPTI_ACTIVITY_KIND_MEMCPY2:
       handleGpuActivity(
@@ -864,7 +880,7 @@ void MuptiActivityProfiler::configureChildProfilers() {
 void MuptiActivityProfiler::configure(
     const Config& config,
     const time_point<system_clock>& now) {
-  std::lock_guard<std::mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   if (isActive()) {
     LOG(WARNING) << "MuptiActivityProfiler already busy, terminating";
     return;
@@ -904,11 +920,10 @@ void MuptiActivityProfiler::configure(
 
   // Set useful metadata into the logger.
   LOGGER_OBSERVER_SET_TRACE_DURATION_MS(config_->activitiesDuration().count());
+  LOGGER_OBSERVER_SET_TRACE_ID(config_->requestTraceID());
+  LOGGER_OBSERVER_SET_GROUP_TRACE_ID(config_->requestGroupTraceID());
   if (!config_->requestTraceID().empty()) {
-    LOGGER_OBSERVER_SET_TRACE_ID(config_->requestTraceID());
-  }
-  if (!config_->requestGroupTraceID().empty()) {
-    LOGGER_OBSERVER_SET_GROUP_TRACE_ID(config_->requestGroupTraceID());
+    addMetadata("trace_id", "\"" + config_->requestTraceID() + "\"");
   }
 
 #if defined(HAS_MUPTI)
@@ -917,7 +932,8 @@ void MuptiActivityProfiler::configure(
     // presumably because structures are allocated and initialized, callbacks
     // are activated etc. After a while the overhead decreases and stabilizes.
     // It's therefore useful to perform some warmup before starting recording.
-    LOG(INFO) << "Enabling GPU tracing";
+    LOG(INFO) << "Enabling GPU tracing with max MUPTI buffer size "
+              << config_->activitiesMaxGpuBufferSize() / 1024 / 1024 << "MB)";
     mupti_.setMaxBufferSize(config_->activitiesMaxGpuBufferSize());
 
     time_point<system_clock> timestamp;
@@ -925,8 +941,11 @@ void MuptiActivityProfiler::configure(
       timestamp = system_clock::now();
     }
 #ifdef HAS_MUPTI
-    mupti_.enableMuptiActivities(config_->selectedActivityTypes());
+#pragma message("---HAS_MUPTI is defined (MUPTI support is enabled)")
+    mupti_.enableMuptiActivities(
+        config_->selectedActivityTypes(), config_->perThreadBufferEnabled());
 #else
+#pragma message("---HAS_MUPTI is NOT defined (MUPTI support is disabled)")
     mupti_.enableActivities(config_->selectedActivityTypes());
 #endif
     if (VLOG_IS_ON(1)) {
@@ -972,10 +991,44 @@ void MuptiActivityProfiler::configure(
   currentRunloopState_ = RunloopState::Warmup;
 }
 
+bool MuptiActivityProfiler::getCollectTraceState() {
+  std::lock_guard<std::recursive_mutex> guard(collectTraceStateMutex_);
+  return isCollectingTrace;
+}
+
+void MuptiActivityProfiler::collectTrace(
+    bool collection_done,
+    const std::chrono::time_point<std::chrono::system_clock>& now) {
+  if (libkineto::api().client()) {
+    libkineto::api().client()->stop();
+  }
+
+#if defined(HAS_MUPTI) || defined(HAS_ROCTRACER)
+  if (mupti_.stopCollection) {
+    ecs_.mupti_stopped_early = mupti_.stopCollection;
+    LOG(ERROR)
+        << "State: CollectTrace stopped by MUPTI. (Buffer size configured is "
+        << config_->activitiesMaxGpuBufferSize() / 1024 / 1024 << "MB)";
+  }
+#endif // HAS_MUPTI || HAS_ROCTRACER
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  stopTraceInternal(now);
+  VLOG_IF(0, collection_done) << "Reached profile end time";
+  UST_LOGGER_MARK_COMPLETED(kCollectionStage);
+}
+
+void MuptiActivityProfiler::ensureCollectTraceDone() {
+  if (collectTraceThread_ && collectTraceThread_->joinable()) {
+    collectTraceThread_->join();
+    collectTraceThread_.reset(nullptr);
+  }
+}
 void MuptiActivityProfiler::toggleCollectionDynamic(const bool enable) {
 #ifdef HAS_MUPTI
   if (enable) {
-    mupti_.enableMuptiActivities(derivedConfig_->profileActivityTypes());
+    mupti_.enableMuptiActivities(
+        derivedConfig_->profileActivityTypes(),
+        derivedConfig_->isPerThreadBufferEnabled());
   } else {
     mupti_.disableMuptiActivities(derivedConfig_->profileActivityTypes());
   }
@@ -1063,9 +1116,13 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
 
       if (mupti_.stopCollection) {
         // Go to process trace to clear any outstanding buffers etc
-        std::lock_guard<std::mutex> guard(mutex_);
+        std::lock_guard<std::recursive_mutex> guard(mutex_);
         stopTraceInternal(now);
         resetInternal();
+        LOG(ERROR)
+            << "State: Warmup stopped by MUPTI. (Buffer size configured is "
+            << config_->activitiesMaxGpuBufferSize() / 1024 / 1024 << "MB)";
+        UST_LOGGER_MARK_COMPLETED(kWarmUpStage);
         VLOG(0) << "Warmup -> WaitForRequest";
         break;
       }
@@ -1107,20 +1164,40 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
       ){
         // Update runloop state first to prevent further updates to shared state
         LOG(INFO) << "Tracing complete.";
-        VLOG_IF(1, currentIter > 0) << "This state change was invoked by application's step() call";
+        VLOG_IF(1, currentIter >= 0)
+            << "This state change was invoked by application's step() call";
 
-        if (libkineto::api().client()) {
-          libkineto::api().client()->stop();
+        // currentIter >= 0 means this is called from the step() api of
+        // the profile in pytorch main thread, it should be executed in another
+        // thread in case pytorch main thread is blocked
+        if (currentIter >= 0) {
+          // if collectTraceThread_ is already running, there's no need to
+          // execute collectTrace twice.
+          // Do not call collectTrace when profilerThread_ is collecting Trace.
+          // Otherwise, libkineto::api().client()->stop will be called twice,
+          // which leads to an unrecoverable ::c10:Error at
+          // disableProfiler
+          if (!collectTraceThread_ && !getCollectTraceState()) {
+            std::lock_guard<std::recursive_mutex> guard(mutex_);
+            collectTraceThread_ = std::make_unique<std::thread>(
+                &MuptiActivityProfiler::collectTrace,
+                this,
+                collection_done,
+                now);
+          }
+          break;
+        }
+        // this is executed in profilerThread_
+        {
+          std::lock_guard<std::recursive_mutex> guard(collectTraceStateMutex_);
+          isCollectingTrace = true;
+        }
+        collectTrace(collection_done, now);
+        {
+          std::lock_guard<std::recursive_mutex> guard(collectTraceStateMutex_);
+          isCollectingTrace = false;
         }
 
-#if defined(HAS_MUPTI)
-        ecs_.mupti_stopped_early = mupti_.stopCollection;
-#endif // HAS_MUPTI
-
-        std::lock_guard<std::mutex> guard(mutex_);
-        stopTraceInternal(now);
-        VLOG_IF(0, collection_done) << "Reached profile end time";
-        UST_LOGGER_MARK_COMPLETED(kCollectionStage);
       } else if (derivedConfig_->isProfilingByIteration()) {
         // nothing to do here
       } else if (now < derivedConfig_->profileEndTime() &&
@@ -1139,9 +1216,13 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
       if (currentIter >= 0) {
         return new_wakeup_time;
       }
+
+      // Before processing, we should wait for collectTrace thread to be done.
+      ensureCollectTraceDone();
+
       // FIXME: Probably want to allow interruption here
       // for quickly handling trace request via synchronous API
-      std::lock_guard<std::mutex> guard(mutex_);
+      std::lock_guard<std::recursive_mutex> guard(mutex_);
       processTraceInternal(*logger_);
       UST_LOGGER_MARK_COMPLETED(kPostProcessingStage);
       resetInternal();
@@ -1153,10 +1234,10 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
 }
 
 void MuptiActivityProfiler::finalizeTrace(const Config& config, ActivityLogger& logger) {
-  LOG(INFO) << "Traces Recorded:";
+  LOG(INFO) << "CPU Traces Recorded:";
   {
     for (const auto& it : iterationCountMap_) {
-      LOG(INFO) << it.first << ": " << it.second << " iterations";
+      LOG(INFO) << it.first << ": " << it.second << " span(s) recorded";
     }
     iterationCountMap_.clear();
   }

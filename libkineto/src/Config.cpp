@@ -13,15 +13,11 @@
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#include <time.h>
 #include <chrono>
-#include <fstream>
 #include <functional>
-#include <iomanip>
-#include <istream>
 #include <mutex>
 #include <ostream>
-#include <sstream>
-#include <time.h>
 
 #include "Logger.h"
 #include "ThreadUtil.h"
@@ -47,7 +43,7 @@ constexpr int kDefaultSamplesPerReport(1);
 constexpr int kDefaultMaxEventProfilersPerGpu(1);
 constexpr int kDefaultEventProfilerHearbeatMonitorPeriod(0);
 constexpr seconds kMaxRequestAge(10);
-constexpr seconds kDefaultOnDemandConfigUpdateIntervalSecs(1);
+constexpr seconds kDefaultOnDemandConfigUpdateIntervalSecs(5);
 // 3200000 is the default value set by MUPTI
 constexpr size_t kDefaultMuptiDeviceBufferSize(3200000);
 // Default value set by MUPTI is 250
@@ -69,6 +65,8 @@ constexpr char kHeartbeatMonitorPeriodKey[] =
 
 // Activity Profiler
 constexpr char kActivitiesEnabledKey[] = "ACTIVITIES_ENABLED";
+constexpr char kMuptiPerThreadBufferEnabledKey[] =
+    "MUPTI_PER_THREAD_BUFFER_ENABLED";
 constexpr char kActivityTypesKey[] = "ACTIVITY_TYPES";
 constexpr char kActivitiesLogFileKey[] = "ACTIVITIES_LOG_FILE";
 constexpr char kActivitiesDurationKey[] = "ACTIVITIES_DURATION_SECS";
@@ -219,6 +217,7 @@ Config::Config()
           kDefaultEventProfilerHearbeatMonitorPeriod),
       multiplexPeriod_(kDefaultMultiplexPeriodMsecs),
       activityProfilerEnabled_(true),
+      perThreadBufferEnabled_(false),
       activitiesLogFile_(defaultTraceFileName()),
       activitiesLogUrl_(fmt::format("file://{}", activitiesLogFile_)),
       activitiesMaxGpuBufferSize_(kDefaultActivitiesMaxGpuBufferSize),
@@ -242,7 +241,7 @@ Config::Config()
     factories->addFeatureConfigs(*this);
   }
 #if __linux__
-  enableIpcFabric_ = (getenv(kUseDaemonEnvVar) != nullptr);
+  enableIpcFabric_ = libkineto::isDaemonEnvVarSet();
 #endif
 }
 
@@ -253,6 +252,10 @@ bool isDaemonEnvVarSet() {
     return ptr != nullptr;
   }();
   return rc;
+}
+#else
+bool isDaemonEnvVarSet() {
+  return false;
 }
 #endif
 
@@ -378,6 +381,8 @@ bool Config::handleOption(const std::string& name, std::string& val) {
     verboseLogModules_ = splitAndTrim(val, ',');
   } else if (!name.compare(kActivitiesEnabledKey)) {
     activityProfilerEnabled_ = toBool(val);
+  } else if (!name.compare(kMuptiPerThreadBufferEnabledKey)) {
+    perThreadBufferEnabled_ = toBool(val);
   } else if (!name.compare(kActivitiesLogFileKey)) {
     activitiesLogFile_ = val;
     activitiesLogUrl_ = fmt::format("file://{}", val);
@@ -458,11 +463,6 @@ void Config::setClientDefaults() {
   activitiesLogToMemory_ = true;
 }
 
-void Config::updateActivityProfilerStartTime() {
-  profileStartTime_ = system_clock::now() +
-        activitiesWarmupDuration() + 2 * Config::kControllerIntervalMsecs;
-}
-
 void Config::validate(
     const time_point<system_clock>& fallbackProfileStartTime) {
   if (samplePeriod_.count() == 0) {
@@ -535,6 +535,7 @@ void Config::validate(
   if (selectedActivityTypes_.size() == 0) {
     selectDefaultActivityTypes();
   }
+  setActivityDependentConfig();
 }
 
 void Config::setReportPeriod(milliseconds msecs) {
@@ -572,6 +573,10 @@ void Config::printActivityProfilerConfig(std::ostream& s) const {
     << fmt::format("{}", fmt::join(activities, ",")) << std::endl;
 
   AbstractConfig::printActivityProfilerConfig(s);
+}
+
+void Config::setActivityDependentConfig() {
+  AbstractConfig::setActivityDependentConfig();
 }
 
 } // namespace KINETO_NAMESPACE

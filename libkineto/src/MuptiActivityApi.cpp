@@ -8,14 +8,12 @@
 
 #include "MuptiActivityApi.h"
 
-#include <assert.h>
 #include <chrono>
 #include <mutex>
 #include <thread>
 
-#include "Logger.h"
-#include "Config.h"
 #include "MusaUtil.h"
+#include "Logger.h"
 
 using namespace std::chrono;
 
@@ -41,7 +39,8 @@ inline bool muptiLazyInit_() {
 inline void reenableMuptiCallbacks_(std::shared_ptr<MuptiCallbackApi>& cbapi_) {
   // Re-enable callbacks from the past if they exist.
   LOG(INFO) << "Re-enable previous MUPTI callbacks - Starting";
-  VLOG(1) << "  MUPTI subscriber before reinit:" << cbapi_->getMuptiSubscriber();
+  VLOG(1) << "  MUPTI subscriber before reinit:"
+          << cbapi_->getMuptiSubscriber();
   cbapi_->initCallbackApi();
   if (cbapi_->initSuccess()) {
     VLOG(1) << "  MUPTI subscriber after reinit:" << cbapi_->getMuptiSubscriber();
@@ -76,8 +75,7 @@ void MuptiActivityApi::pushCorrelationID(int id, CorrelationFlowType type) {
         break;
     case User:
       MUPTI_CALL(muptiActivityPushExternalCorrelationId(
-        MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, id));
-        break;
+          MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, id));
   }
 #endif
 }
@@ -89,14 +87,12 @@ void MuptiActivityApi::popCorrelationID(CorrelationFlowType type) {
   }
   switch(type) {
     case Default:
-      // TODO: MUPTI muptiActivityPopExternalCorrelationId is not yet implemented
       MUPTI_CALL(muptiActivityPopExternalCorrelationId(
         MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0, nullptr));
         break;
     case User:
       MUPTI_CALL(muptiActivityPopExternalCorrelationId(
-        MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, nullptr));
-        break;
+          MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, nullptr));
   }
 #endif
 }
@@ -139,7 +135,6 @@ void MuptiActivityApi::setDeviceBufferPoolLimit(size_t limit) {
 void MuptiActivityApi::forceLoadMupti() {
 #ifdef HAS_MUPTI
   MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL));
-  MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL));
 #endif
 }
 
@@ -162,25 +157,32 @@ void MUPTIAPI MuptiActivityApi::bufferRequestedTrampoline(
 void MuptiActivityApi::bufferRequested(
     uint8_t** buffer, size_t* size, size_t* maxNumRecords) {
   std::lock_guard<std::mutex> guard(mutex_);
+  LOG(VERBOSE) << "MUPTI buffer requested";
   if (allocatedGpuTraceBuffers_.size() >= maxGpuBufferCount_) {
-    // comment this to avoid stopping the collection when the buffer is full
-    // stopCollection = true;
+    stopCollection = true;
     LOG(WARNING) << "Exceeded max GPU buffer count ("
                  << allocatedGpuTraceBuffers_.size()
-                 << " > " << maxGpuBufferCount_
-                 << ") - terminating tracing";
+                 << " >= " << maxGpuBufferCount_ << ") - terminating tracing";
   }
 
   auto buf = std::make_unique<MuptiActivityBuffer>(kBufSize);
   *buffer = buf->data();
   *size = kBufSize;
+
   allocatedGpuTraceBuffers_[*buffer] = std::move(buf);
+
   *maxNumRecords = 0;
 }
 #endif
 
-std::unique_ptr<MuptiActivityBufferMap>
-MuptiActivityApi::activityBuffers() {
+std::unique_ptr<MuptiActivityBufferMap> MuptiActivityApi::activityBuffers() {
+  {
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (allocatedGpuTraceBuffers_.empty()) {
+      return nullptr;
+    }
+  }
+
 #ifdef HAS_MUPTI
   VLOG(1) << "Flushing GPU activity buffers";
   time_point<system_clock> t1;
@@ -204,7 +206,7 @@ MuptiActivityApi::activityBuffers() {
 int MuptiActivityApi::processActivitiesForBuffer(
     uint8_t* buf,
     size_t validSize,
-    std::function<void(const MUpti_Activity*)> handler) {
+    const std::function<void(const MUpti_Activity*)>& handler) {
   int count = 0;
   if (buf && validSize) {
     MUpti_Activity* record{nullptr};
@@ -219,7 +221,7 @@ int MuptiActivityApi::processActivitiesForBuffer(
 
 const std::pair<int, size_t> MuptiActivityApi::processActivities(
     MuptiActivityBufferMap& buffers,
-    std::function<void(const MUpti_Activity*)> handler) {
+    const std::function<void(const MUpti_Activity*)>& handler) {
   std::pair<int, size_t> res{0, 0};
 #ifdef HAS_MUPTI
   for (auto& pair : buffers) {
@@ -300,7 +302,8 @@ void MuptiActivityApi::bufferCompleted(
 #endif
 
 void MuptiActivityApi::enableMuptiActivities(
-    const std::set<ActivityType>& selected_activities) {
+    const std::set<ActivityType>& selected_activities,
+    bool enablePerThreadBuffers) {
 #ifdef HAS_MUPTI
   // Lazily support re-init of MUPTI Callbacks, if they were finalized before.
   auto cbapi_ = MuptiCallbackApi::singleton();

@@ -8,17 +8,43 @@
 
 #pragma once
 
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
 #ifdef __linux__
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
 // include logger before to enable ipc fabric to access LOG() macros
 #ifdef ENABLE_IPC_FABRIC
-#include "Logger.h"
-#endif
 
+#include "Logger.h"
+
+// The following is required for LOG() macros to work below
 // Include the IPC Fabric
 #include "FabricManager.h"
+
+#else
+
+// Adds an empty implementation so compilation works.
+namespace dynolog::ipcfabric {
+
+class FabricManager {
+ public:
+  FabricManager(const FabricManager&) = delete;
+  FabricManager& operator=(const FabricManager&) = delete;
+
+  static std::unique_ptr<FabricManager> factory(
+      std::string endpoint_name = "") {
+    return NULL;
+  }
+};
+
+} // namespace dynolog::ipcfabric
+
+#endif // ENABLE_IPC_FABRIC
 
 namespace KINETO_NAMESPACE {
 
@@ -44,7 +70,7 @@ class IpcFabricConfigClient {
 
   // Get on demand configurations for tracing/counter collection
   // type is a bit mask, please see LibkinetoConfigType encoding above.
-  virtual std::string getLibkinetoOndemandConfig(int32_t type, int currentRunloopState);
+  virtual std::string getLibkinetoOndemandConfig(int32_t type);
 
   void setIpcFabricEnabled(bool enabled) {
     ipcFabricEnabled_ = enabled;

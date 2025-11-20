@@ -37,18 +37,22 @@ void ActivityProfilerController::setLoggerCollectorFactory(
     std::function<std::shared_ptr<LoggerCollector>()> factory) {
   loggerCollectorFactory() = factory();
 }
+
+std::shared_ptr<LoggerCollector>
+ActivityProfilerController::getLoggerCollector() {
+  return loggerCollectorFactory();
+}
 #endif // !USE_GOOGLE_LOG
 
 ActivityProfilerController::ActivityProfilerController(
     ConfigLoader& configLoader, bool cpuOnly)
     : configLoader_(configLoader) {
   // Initialize ChromeTraceBaseTime first of all.
-  profiler_ = std::make_unique<MuptiActivityProfiler>(
-      MuptiActivityApi::singleton(), cpuOnly);
-  configLoader_.addHandler(ConfigLoader::ConfigKind::ActivityProfiler, this);
   ChromeTraceBaseTime::singleton().init();
 
 #if !USE_GOOGLE_LOG
+  // Initialize LoggerCollector before ActivityProfiler to log
+  // MUPTI and MUSA driver versions.
   if (loggerCollectorFactory()) {
     // Keep a reference to the logger collector factory to handle safe
     // static de-initialization.
@@ -56,6 +60,15 @@ ActivityProfilerController::ActivityProfilerController(
     Logger::addLoggerObserver(loggerCollectorFactory_.get());
   }
 #endif // !USE_GOOGLE_LOG
+
+#ifdef HAS_ROCTRACER
+  profiler_ = std::make_unique<MuptiActivityProfiler>(
+      RoctracerActivityApi::singleton(), cpuOnly);
+#else
+  profiler_ = std::make_unique<MuptiActivityProfiler>(
+      MuptiActivityApi::singleton(), cpuOnly);
+#endif
+  configLoader_.addHandler(ConfigLoader::ConfigKind::ActivityProfiler, this);
 }
 
 ActivityProfilerController::~ActivityProfilerController() {
@@ -112,12 +125,10 @@ void ActivityProfilerController::setInvariantViolationsLoggerFactory(
 }
 
 bool ActivityProfilerController::canAcceptConfig() {
-  // If has ongoing or pending on-demand profiling, do not receive new one.
-  return !profiler_->isOnDemandProfilingRunning() && !profiler_->isOnDemandProfilingPending();
+  return !profiler_->isActive();
 }
 
 void ActivityProfilerController::acceptConfig(const Config& config) {
-  LOG(INFO) << "acceptConfig";
   VLOG(1) << "acceptConfig";
   if (config.activityProfilerEnabled()) {
     scheduleTrace(config);
@@ -186,7 +197,6 @@ bool ActivityProfilerController::shouldActivateIterationConfig(
 void ActivityProfilerController::profilerLoop() {
   setThreadName("Kineto Activity Profiler");
   VLOG(0) << "Entering activity profiler loop";
-  LOG(INFO) << "Entering activity profiler loop";
 
   auto now = system_clock::now();
   auto next_wakeup_time = now + Config::kControllerIntervalMsecs;
@@ -213,10 +223,7 @@ void ActivityProfilerController::profilerLoop() {
       next_wakeup_time += Config::kControllerIntervalMsecs;
     }
 
-    // Only run performRunLoopStep on on-demand profiling and status is ongoing,
-    // as sync profiling which is called by python api,
-    // has other control logic (controlled by python code directly.)
-    if (profiler_->isActive() && profiler_->isOnDemandProfilingRunning()) {
+    if (profiler_->isActive()) {
       next_wakeup_time = profiler_->performRunLoopStep(now, next_wakeup_time);
       VLOG(1) << "Profiler loop: "
           << duration_cast<milliseconds>(system_clock::now() - now).count()
@@ -225,7 +232,6 @@ void ActivityProfilerController::profilerLoop() {
   }
 
   VLOG(0) << "Exited activity profiling loop";
-  LOG(INFO) << "Exited activity profiling loop";
 }
 
 void ActivityProfilerController::step() {
@@ -243,10 +249,7 @@ void ActivityProfilerController::step() {
     }
   }
 
-  // Only run performRunLoopStep on on-demand profiling and status is ongoing,
-  // as sync profiling which is called by python api,
-  // has other control logic (controlled by python code directly.)
-  if (profiler_->isActive() && profiler_->isOnDemandProfilingRunning()) {
+  if (profiler_->isActive()) {
     auto now = system_clock::now();
     auto next_wakeup_time = now + Config::kControllerIntervalMsecs;
     profiler_->performRunLoopStep(now, next_wakeup_time, currentIter);
@@ -263,51 +266,12 @@ void ActivityProfilerController::activateConfig(
   asyncRequestConfig_ = nullptr;
 }
 
-int ActivityProfilerController::getCurrentRunloopState() {
-  VLOG(1) << "getCurrentRunloopState";
-  return profiler_->getCurrentRunloopState();
-}
-
-bool ActivityProfilerController::isSyncProfilingRunning() {
-  LOG(INFO) << "call isSyncProfilingRunning";
-  return profiler_->isSyncProfilingRunning();
-}
-
-void ActivityProfilerController::setSyncProfilingRunning(bool b) {
-  LOG(INFO) << "call setSyncProfilingRunning";
-  profiler_->setSyncProfilingRunning(b);
-}
-
 void ActivityProfilerController::scheduleTrace(const Config& config) {
-  LOG(INFO) << "scheduleTrace";
   VLOG(1) << "scheduleTrace";
-
-  // If has another pending on-demand profiling, just return.
-  if (profiler_->isOnDemandProfilingPending()) {
-    LOG(WARNING) << "Ignored on-demand profiling request, as another on-demand profiler is pending.";
+  if (profiler_->isActive()) {
+    LOG(WARNING) << "Ignored request - profiler busy";
     return;
   }
-
-  // If has another ongoing on-demand profiling, just return.
-  if (profiler_->isOnDemandProfilingRunning()) {
-    LOG(WARNING) << "Ignored on-demand profiling request, as another on-demand profiler is running.";
-    return;
-  }
-  profiler_->setOnDemandProfilingPending(true);
-  configLoader_.notifyCurrentRunloopState(4); // 4 - on-demand profiling pending
-  LOG(INFO) << "On-demand profiling enter [pending] status.";
-  // If has another ongoing sync profiling, wait until it is finished normally.
-  while (profiler_->isSyncProfilingRunning()) {
-    // Block here, until sync profiling is finished.
-    LOG(INFO) << "wait until sync profiling finished.";
-    // sleep in main thread, readOnDemandConfigFromDaemon will be blocked.
-    usleep(500000); // 500ms
-  }
-  profiler_->setOnDemandProfilingRunning(true);
-  profiler_->setOnDemandProfilingPending(false);
-  configLoader_.notifyCurrentRunloopState(1); // 1 - on-demand profiling running
-  LOG(INFO) << "On-demand profiling enter [running] status.";
-
   int64_t currentIter = iterationCount_;
   if (config.hasProfileStartIteration() && currentIter < 0) {
     LOG(WARNING) << "Ignored profile iteration count based request as "
@@ -328,10 +292,6 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
     return;
   }
 
-  // Modify config request time, because may delay by sync profiling tasks.
-  asyncRequestConfig_->updateActivityProfilerRequestReceivedTime();
-  asyncRequestConfig_->updateActivityProfilerStartTime();
-
   // start a profilerLoop() thread to handle request
   if (!profilerThread_) {
     profilerThread_ =
@@ -340,21 +300,21 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
 }
 
 void ActivityProfilerController::prepareTrace(const Config& config) {
-  // Requests from ActivityProfilerApi have lower priority than
+  // Requests from ActivityProfilerApi have higher priority than
   // requests from other sources (signal, daemon).
-  // Refuse new ones if has any ongoing profiling.
+  // Cancel any ongoing request and refuse new ones.
   auto now = system_clock::now();
-  if (profiler_->isActive() || profiler_->isOnDemandProfilingRunning()) {
-    LOG(WARNING) << "Ignored prepareTrace request - profiler busy";
-    return;
-  }
-  if (profiler_->isOnDemandProfilingPending()) {
-    LOG(WARNING) << "Ignored prepareTrace request - as on-demand profiling pending.";
-    return;
+  if (profiler_->isActive()) {
+    LOG(WARNING) << "Cancelling current trace request in order to start "
+                 << "higher priority synchronous request";
+    if (libkineto::api().client()) {
+      libkineto::api().client()->stop();
+    }
+    profiler_->stopTrace(now);
+    profiler_->reset();
   }
 
   profiler_->configure(config, now);
-  profiler_->setSyncProfilingRunning(true);
 }
 
 void ActivityProfilerController::toggleCollectionDynamic(const bool enable) {
@@ -362,26 +322,15 @@ void ActivityProfilerController::toggleCollectionDynamic(const bool enable) {
 }
 
 void ActivityProfilerController::startTrace() {
-  if (profiler_->isOnDemandProfilingRunning()) {
-    LOG(WARNING) << "Ignored startTrace request - on-demand profiler busy";
-    return;
-  }
   UST_LOGGER_MARK_COMPLETED(kWarmUpStage);
   profiler_->startTrace(std::chrono::system_clock::now());
 }
 
-std::unique_ptr<ActivityTraceInterface> ActivityProfilerController::stopTrace() {
-  auto logger = std::make_unique<MemoryTraceLogger>(profiler_->config());
-  if (profiler_->isOnDemandProfilingRunning()) {
-    LOG(WARNING) << "Ignored stopTrace request - on-demand profiler busy";
-    return std::make_unique<ActivityTrace>(std::move(logger), loggerFactory());
-  }
-  if (!profiler_->isActive()) {
-    LOG(WARNING) << "Ignored stopTrace request - as profiler is NOT active";
-    return std::make_unique<ActivityTrace>(std::move(logger), loggerFactory());
-  }
+std::unique_ptr<ActivityTraceInterface>
+ActivityProfilerController::stopTrace() {
   profiler_->stopTrace(std::chrono::system_clock::now());
   UST_LOGGER_MARK_COMPLETED(kCollectionStage);
+  auto logger = std::make_unique<MemoryTraceLogger>(profiler_->config());
   profiler_->processTrace(*logger);
   // Will follow up with another patch for logging URLs when ActivityTrace is moved.
   UST_LOGGER_MARK_COMPLETED(kPostProcessingStage);

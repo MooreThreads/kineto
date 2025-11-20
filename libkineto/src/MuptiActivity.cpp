@@ -10,8 +10,9 @@
 
 #include <fmt/format.h>
 
-#include "MusaDeviceProperties.h"
 #include "Demangle.h"
+#include "MusaDeviceProperties.h"
+#include "Logger.h"
 #include "output_base.h"
 
 namespace KINETO_NAMESPACE {
@@ -102,7 +103,8 @@ constexpr int64_t us(int64_t timestamp) {
   return timestamp / 1000;
 }
 
-template<>
+template <>
+//TODO(MUpti_ActivityKernel6->MUpti_ActivityKernel4)
 inline const std::string GpuActivity<MUpti_ActivityKernel6>::metadataJson() const {
   const MUpti_ActivityKernel6& kernel = raw();
   float blocksPerSmVal = blocksPerSm(kernel);
@@ -119,7 +121,7 @@ inline const std::string GpuActivity<MUpti_ActivityKernel6>::metadataJson() cons
       "grid": [{}, {}, {}],
       "block": [{}, {}, {}],
       "est. achieved occupancy %": {})JSON",
-      us(kernel.queued), kernel.deviceId, kernel.contextId,
+      kernel.queued, kernel.deviceId, kernel.contextId,
       kernel.streamId, kernel.correlationId,
       kernel.registersPerThread,
       kernel.staticSharedMemory + kernel.dynamicSharedMemory,
@@ -130,7 +132,6 @@ inline const std::string GpuActivity<MUpti_ActivityKernel6>::metadataJson() cons
       (int) (0.5 + kernelOccupancy(kernel) * 100.0));
   // clang-format on
 }
-
 
 inline std::string memcpyName(uint8_t kind, uint8_t src, uint8_t dst) {
   return fmt::format(
@@ -152,19 +153,19 @@ inline std::string memoryAtomicName(uint8_t kind, uint8_t src, uint8_t dst) {
 
 inline std::string memoryAtomicValueName(uint8_t kind, uint8_t dst) {
   return fmt::format(
-      "Memcpy {} ({})",
+      "Memcpy {} ({} -> {})",
       memoryAtomicValueKindString((MUpti_ActivityMemoryAtomicValueKind)kind),
       memoryKindString((MUpti_ActivityMemoryKind)dst));
 }
 
 
-template<>
-inline ActivityType GpuActivity<MUpti_ActivityMemcpy4>::type() const {
+template <>
+inline ActivityType GpuActivity<MUpti_ActivityMemcpy>::type() const {
   return ActivityType::GPU_MEMCPY;
 }
 
-template<>
-inline const std::string GpuActivity<MUpti_ActivityMemcpy4>::name() const {
+template <>
+inline const std::string GpuActivity<MUpti_ActivityMemcpy>::name() const {
   return memcpyName(raw().copyKind, raw().srcKind, raw().dstKind);
 }
 
@@ -172,9 +173,10 @@ inline std::string bandwidth(uint64_t bytes, uint64_t duration) {
   return duration == 0 ? "\"N/A\"" : fmt::format("{}", bytes * 1.0 / duration);
 }
 
-template<>
-inline const std::string GpuActivity<MUpti_ActivityMemcpy4>::metadataJson() const {
-  const MUpti_ActivityMemcpy4& memcpy = raw();
+template <>
+inline const std::string GpuActivity<MUpti_ActivityMemcpy>::metadataJson()
+    const {
+  const MUpti_ActivityMemcpy& memcpy = raw();
   // clang-format off
   return fmt::format(R"JSON(
       "device": {}, "context": {},
@@ -182,7 +184,7 @@ inline const std::string GpuActivity<MUpti_ActivityMemcpy4>::metadataJson() cons
       "bytes": {}, "memory bandwidth (GB/s)": {})JSON",
       memcpy.deviceId, memcpy.contextId,
       memcpy.streamId, memcpy.correlationId,
-      memcpy.bytes, bandwidth(memcpy.bytes, memcpy.end - memcpy.start));
+      memcpy.bytes, bandwidth(memcpy.bytes, duration()));
   // clang-format on
 }
 
@@ -209,7 +211,7 @@ inline const std::string GpuActivity<MUpti_ActivityMemcpy2>::metadataJson() cons
       memcpy.srcDeviceId, memcpy.deviceId, memcpy.dstDeviceId,
       memcpy.srcContextId, memcpy.contextId, memcpy.dstContextId,
       memcpy.streamId, memcpy.correlationId,
-      memcpy.bytes, bandwidth(memcpy.bytes, memcpy.end - memcpy.start));
+      memcpy.bytes, bandwidth(memcpy.bytes, duration()));
   // clang-format on
 }
 
@@ -282,7 +284,7 @@ inline const std::string GpuActivity<MUpti_ActivityMemset>::metadataJson() const
       "bytes": {}, "memory bandwidth (GB/s)": {})JSON",
       memset.deviceId, memset.contextId,
       memset.streamId, memset.correlationId,
-      memset.bytes, bandwidth(memset.bytes, memset.end - memset.start));
+      memset.bytes, bandwidth(memset.bytes, duration()));
   // clang-format on
 }
 

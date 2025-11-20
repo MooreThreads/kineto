@@ -109,13 +109,13 @@ MuptiRangeProfilerSession::MuptiRangeProfilerSession(
     LOG(INFO) << "\t" << m;
   }
 
-  MuptiRangeProfilerOptions opts{
-    .metricNames = mupti_metrics,
-    .deviceId = 0,
-    .maxRanges = max_ranges,
-    .numNestingLevels = 1,
-    .muContext = nullptr,
-    .unitTest = false};
+  MuptiRangeProfilerOptions opts;
+  opts.metricNames = mupti_metrics;
+  opts.deviceId = 0;
+  opts.maxRanges = max_ranges;
+  opts.numNestingLevels = 1;
+  opts.muContext = nullptr;
+  opts.unitTest = false;
 
   for (auto device_id : MuptiRBProfilerSession::getActiveDevices()) {
     LOG(INFO) << "Init MUPTI range profiler on gpu = " << device_id
