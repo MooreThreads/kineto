@@ -44,12 +44,6 @@ TraceSpan MuptiRBProfilerSession::getProfilerTraceSpan() {
 constexpr char kRootUserRangeName[] = "__profile__";
 constexpr int kCallbacksCountToFlush = 500;
 
-// Should we set Counter availability image ourselves?
-// Disabled this right now as this call conflicts with DCGM
-// It is not clear why it should conflict except it being a profiler API call
-//  TODO Revisit
-constexpr bool kSetCounterAvail = false;
-
 // Shared state to track one Mupti Profiler API per Device
 namespace {
 // per device profiler maps
@@ -73,7 +67,7 @@ std::vector<uint8_t> getCounterAvailiability(MUcontext muContext) {
   std::vector<uint8_t> counterAvailabilityImage;
   MUpti_Profiler_GetCounterAvailability_Params getCounterAvailabilityParams = {
       MUpti_Profiler_GetCounterAvailability_Params_STRUCT_SIZE, nullptr};
-  getCounterAvailabilityParams.ctx = MUcontext;
+  getCounterAvailabilityParams.ctx = muContext;
   MUPTI_CALL(
       muptiProfilerGetCounterAvailability(&getCounterAvailabilityParams));
 
@@ -294,6 +288,11 @@ bool MuptiRBProfilerSession::staticInit() {
   domain = MUPTI_CB_DOMAIN_RUNTIME_API;
   status = cbapi->registerCallback(
       domain, MuptiCallbackApi::MUSA_LAUNCH_KERNEL, trackMusaKernelLaunch);
+  status = status &&
+      cbapi->registerCallback(
+          domain,
+          MuptiCallbackApi::MUSA_LAUNCH_KERNEL_EXC,
+          trackMusaKernelLaunch);
 
   if (!status) {
     LOG(WARNING) << "MUPTI Range Profiler unable to attach musa kernel "
@@ -375,8 +374,10 @@ MuptiRBProfilerSession::MuptiRBProfilerSession(
             << " counter sb image size = "
             << counterDataScratchBuffer.size()  << " B";
 
-  beginPassParams_ = {MUpti_Profiler_BeginPass_Params_STRUCT_SIZE, nullptr};
-  endPassParams_ = {MUpti_Profiler_EndPass_Params_STRUCT_SIZE, nullptr};
+  beginPassParams_ = {MUpti_Profiler_BeginPass_Params_STRUCT_SIZE, nullptr, {}};
+  beginPassParams_.ctx = muContext_;
+  endPassParams_ = {MUpti_Profiler_EndPass_Params_STRUCT_SIZE, nullptr, {}};
+  endPassParams_.ctx = muContext_;
 
   initSuccess_ = true;
   profiler_map[deviceId_] = this;
@@ -409,7 +410,7 @@ void MuptiRBProfilerSession::startInternal(
   curReplay_ = profilerReplayMode;
 
   MUpti_Profiler_BeginSession_Params beginSessionParams = {
-      MUpti_Profiler_BeginSession_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_BeginSession_Params_STRUCT_SIZE, nullptr, {}};
 
   beginSessionParams.ctx = muContext_;
   beginSessionParams.counterDataImageSize = counterDataImage.size();
@@ -433,7 +434,7 @@ void MuptiRBProfilerSession::startInternal(
 
   // Set counter configuration
   MUpti_Profiler_SetConfig_Params setConfigParams = {
-      MUpti_Profiler_SetConfig_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_SetConfig_Params_STRUCT_SIZE, nullptr, {}};
 
   setConfigParams.ctx = muContext_;
   setConfigParams.pConfig = configImage.data();
@@ -465,11 +466,13 @@ void MuptiRBProfilerSession::stop() {
   LOG(INFO) << "Stop profiler session on device = " << deviceId_;
 
   MUpti_Profiler_UnsetConfig_Params unsetConfigParams = {
-      MUpti_Profiler_UnsetConfig_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_UnsetConfig_Params_STRUCT_SIZE, nullptr, {}};
+  unsetConfigParams.ctx = muContext_;
   MUPTI_CALL(muptiProfilerUnsetConfig(&unsetConfigParams));
 
   MUpti_Profiler_EndSession_Params endSessionParams = {
-      MUpti_Profiler_EndSession_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_EndSession_Params_STRUCT_SIZE, nullptr, {}};
+  endSessionParams.ctx = muContext_;
   MUPTI_CALL(muptiProfilerEndSession(&endSessionParams));
 
   disableKernelCallbacks();
@@ -498,7 +501,8 @@ bool MuptiRBProfilerSession::endPass() {
 void MuptiRBProfilerSession::flushCounterData() {
   LOG(INFO) << "Flushing counter data on device = " << deviceId_;
   MUpti_Profiler_FlushCounterData_Params flushCounterDataParams = {
-      MUpti_Profiler_FlushCounterData_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_FlushCounterData_Params_STRUCT_SIZE, nullptr, {}};
+  flushCounterDataParams.ctx = muContext_;
   MUPTI_CALL(muptiProfilerFlushCounterData(&flushCounterDataParams));
 }
 
@@ -509,7 +513,8 @@ void MuptiRBProfilerSession::enable() {
     return;
   }
   MUpti_Profiler_EnableProfiling_Params enableProfilingParams = {
-      MUpti_Profiler_EnableProfiling_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_EnableProfiling_Params_STRUCT_SIZE, nullptr, {}};
+  enableProfilingParams.ctx = muContext_;
   MUPTI_CALL(muptiProfilerEnableProfiling(&enableProfilingParams));
 }
 
@@ -519,7 +524,8 @@ void MuptiRBProfilerSession::disable() {
     return;
   }
   MUpti_Profiler_DisableProfiling_Params disableProfilingParams = {
-      MUpti_Profiler_DisableProfiling_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_DisableProfiling_Params_STRUCT_SIZE, nullptr, {}};
+  disableProfilingParams.ctx = muContext_;
   MUPTI_CALL(muptiProfilerDisableProfiling(&disableProfilingParams));
 }
 
@@ -527,7 +533,8 @@ void MuptiRBProfilerSession::disable() {
 void MuptiRBProfilerSession::pushRange(const std::string& rangeName) {
   LOG(INFO) << " MUPTI pushrange ( " << rangeName << " )";
   MUpti_Profiler_PushRange_Params pushRangeParams = {
-      MUpti_Profiler_PushRange_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_PushRange_Params_STRUCT_SIZE, nullptr, {}};
+  pushRangeParams.ctx = muContext_;
   pushRangeParams.pRangeName = rangeName.c_str();
   MUPTI_CALL(muptiProfilerPushRange(&pushRangeParams));
 }
@@ -535,7 +542,8 @@ void MuptiRBProfilerSession::pushRange(const std::string& rangeName) {
 void MuptiRBProfilerSession::popRange() {
   LOG(INFO) << " MUPTI pop range";
   MUpti_Profiler_PopRange_Params popRangeParams = {
-      MUpti_Profiler_PopRange_Params_STRUCT_SIZE, nullptr};
+      MUpti_Profiler_PopRange_Params_STRUCT_SIZE, nullptr, {}};
+  popRangeParams.ctx = muContext_;
   MUPTI_CALL(muptiProfilerPopRange(&popRangeParams));
 }
 

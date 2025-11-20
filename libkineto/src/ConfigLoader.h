@@ -19,10 +19,6 @@
 
 #include "Config.h"
 
-// TODO(T90238193)
-// @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
-#include "ILoggerObserver.h"
-
 namespace libkineto {
   class LibkinetoApi;
 }
@@ -47,7 +43,6 @@ class ConfigLoader {
     virtual ~ConfigHandler() {}
     virtual bool canAcceptConfig() = 0;
     virtual void acceptConfig(const Config& cfg) = 0;
-    virtual int getCurrentRunloopState() = 0;
   };
 
   void addHandler(ConfigKind kind, ConfigHandler* handler) {
@@ -73,19 +68,6 @@ class ConfigLoader {
       }
     }
   }
-
-  int getCurrentRunloopState() {
-    std::lock_guard<std::mutex> lock(updateThreadMutex_);
-    for (auto& key_val : handlers_) {
-      if (key_val.first == ConfigKind::ActivityProfiler) {
-        for (ConfigHandler* handler : key_val.second) {
-          return handler->getCurrentRunloopState();
-        }
-      }
-    }
-  }
-
-  void notifyCurrentRunloopState(int state);
 
   bool canHandlerAcceptConfig(ConfigKind kind) {
     std::lock_guard<std::mutex> lock(updateThreadMutex_);
@@ -114,7 +96,7 @@ class ConfigLoader {
   }
 
   bool hasNewConfig(const Config& oldConfig);
-  int contextCountForGpu(uint32_t gpu);
+  int contextCountForGpu(uint32_t device);
 
   void handleOnDemandSignal();
 
@@ -145,7 +127,7 @@ class ConfigLoader {
       Config& config);
 
   std::string readOnDemandConfigFromDaemon(
-      std::chrono::time_point<std::chrono::system_clock> now, int currentRunloopState);
+      std::chrono::time_point<std::chrono::system_clock> now);
 
   const char* customConfigFileName();
 

@@ -12,16 +12,12 @@
 #include "MuptiActivityApi.h"
 
 #include <assert.h>
-#include <chrono>
 #include <algorithm>
+#include <chrono>
 #include <mutex>
-#include <shared_mutex>
 
-#ifdef HAS_MUPTI
 #include "MusaUtil.h"
-#endif
 #include "Logger.h"
-
 
 namespace KINETO_NAMESPACE {
 
@@ -31,13 +27,6 @@ constexpr size_t MAX_CB_FNS_PER_CB = 8;
 // Use this value in enabledCallbacks_ set, when all cbids in a domain
 // is enabled, not a specific cbid.
 constexpr uint32_t MAX_MUPTI_CALLBACK_ID_ALL = 0xffffffff;
-
-// Reader Writer lock types
-using ReaderWriterLock = std::shared_timed_mutex;
-using ReaderLockGuard = std::shared_lock<ReaderWriterLock>;
-using WriteLockGuard = std::unique_lock<ReaderWriterLock>;
-
-static ReaderWriterLock callbackLock_;
 
 /* Callback Table :
  *  Overall goal of the design is to optimize the lookup of function
@@ -76,8 +65,7 @@ static void callback_switchboard(
 
   // below statement is likey going to call a mutex
   // on the singleton access
-  // MuptiCallbackApi::singleton()->__callback_switchboard(
-  //     domain, cbid, cbInfo);
+  // MuptiCallbackApi::singleton()->__callback_switchboard(domain, cbid, cbInfo);
 }
 
 
@@ -85,7 +73,7 @@ void MuptiCallbackApi::__callback_switchboard(
    MUpti_CallbackDomain domain,
    MUpti_CallbackId cbid,
    const MUpti_CallbackData* cbInfo) {
-  VLOG(0) << "Callback: domain = " << domain << ", cbid = " << cbid;
+  LOG(INFO) << "Callback: domain = " << domain << ", cbid = " << cbid;
   CallbackList *cblist = nullptr;
 
   switch (domain) {
@@ -163,25 +151,25 @@ void MuptiCallbackApi::__callback_switchboard(
 }
 
 std::shared_ptr<MuptiCallbackApi> MuptiCallbackApi::singleton() {
-	static const std::shared_ptr<MuptiCallbackApi>
-		instance = [] {
-			std::shared_ptr<MuptiCallbackApi> inst =
-				std::shared_ptr<MuptiCallbackApi>(new MuptiCallbackApi());
-			return inst;
-	}();
+  static const std::shared_ptr<MuptiCallbackApi> instance = [] {
+    std::shared_ptr<MuptiCallbackApi> inst =
+        std::make_shared<MuptiCallbackApi>();
+    return inst;
+  }();
   return instance;
 }
 
 void MuptiCallbackApi::initCallbackApi() {
 #ifdef HAS_MUPTI
   lastMuptiStatus_ = MUPTI_ERROR_UNKNOWN;
-  lastMuptiStatus_ = MUPTI_CALL_NOWARN(
-    muptiSubscribe(&subscriber_,
-      (MUpti_CallbackFunc)callback_switchboard,
-      nullptr));
-  if (lastMuptiStatus_ != MUPTI_SUCCESS) {
-    VLOG(1)  << "Failed muptiSubscribe, status: " << lastMuptiStatus_;
-  }
+  lastMuptiStatus_ = MUPTI_CALL_NOWARN(muptiSubscribe(
+      &subscriber_, (MUpti_CallbackFunc)callback_switchboard, nullptr));
+
+  // TODO: Remove temporarily to work around static initialization order issue
+  // betweent this and GLOG.
+  // if (lastMuptiStatus_ != MUPTI_SUCCESS) {
+  //   LOG(INFO) << "Failed muptiSubscribe, status: " << lastMuptiStatus_;
+  // }
 
   initSuccess_ = (lastMuptiStatus_ == MUPTI_SUCCESS);
 #endif

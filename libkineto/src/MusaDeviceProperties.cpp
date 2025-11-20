@@ -113,6 +113,7 @@ int smCount(uint32_t deviceId) {
 #endif // HAS_MUPTI
 
 #ifdef HAS_MUPTI
+//TODO(MUpti_ActivityKernel6->MUpti_ActivityKernel4)
 float blocksPerSm(const MUpti_ActivityKernel6& kernel) {
   return (kernel.gridX * kernel.gridY * kernel.gridZ) /
       (float) smCount(kernel.deviceId);

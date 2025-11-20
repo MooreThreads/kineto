@@ -14,18 +14,17 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <unistd.h>      //usleep()
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
 #include "ActivityLoggerFactory.h"
-#include "MuptiActivityProfiler.h"
 #include "ActivityProfilerInterface.h"
 #include "ActivityTraceInterface.h"
 #include "ConfigLoader.h"
 #include "MuptiActivityApi.h"
-#include "LoggerCollector.h"
+#include "MuptiActivityProfiler.h"
 #include "InvariantViolations.h"
+#include "LoggerCollector.h"
 
 namespace KINETO_NAMESPACE {
 
@@ -41,6 +40,7 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
   ~ActivityProfilerController();
 
 #if !USE_GOOGLE_LOG
+  static std::shared_ptr<LoggerCollector> getLoggerCollector();
   static void setLoggerCollectorFactory(
       std::function<std::shared_ptr<LoggerCollector>()> factory);
 #endif // !USE_GOOGLE_LOG
@@ -50,15 +50,13 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
       ActivityLoggerFactory::FactoryFunc factory);
 
   static void setInvariantViolationsLoggerFactory(
-      const std::function<std::unique_ptr<InvariantViolationsLogger>()>& factory);
+      const std::function<std::unique_ptr<InvariantViolationsLogger>()>&
+          factory);
 
   // These API are used for On-Demand Tracing.
   bool canAcceptConfig() override;
   void acceptConfig(const Config& config) override;
   void scheduleTrace(const Config& config);
-  bool isSyncProfilingRunning();
-  void setSyncProfilingRunning(bool b);
-  int getCurrentRunloopState() override;
 
   // These API are used for Synchronous Tracing.
   void prepareTrace(const Config& config);
@@ -71,8 +69,7 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
     return profiler_->isActive();
   }
 
-  void transferCpuTrace(
-      std::unique_ptr<libkineto::CpuTraceBuffer> cpuTrace) {
+  void transferCpuTrace(std::unique_ptr<libkineto::CpuTraceBuffer> cpuTrace) {
     return profiler_->transferCpuTrace(std::move(cpuTrace));
   }
 
@@ -80,18 +77,31 @@ class ActivityProfilerController : public ConfigLoader::ConfigHandler {
     profiler_->recordThreadInfo();
   }
 
-  void addChildActivityProfiler(
-      std::unique_ptr<IActivityProfiler> profiler) {
+  void addChildActivityProfiler(std::unique_ptr<IActivityProfiler> profiler) {
     profiler_->addChildActivityProfiler(std::move(profiler));
   }
 
   void addMetadata(const std::string& key, const std::string& value);
 
   void logInvariantViolation(
-    const std::string& profile_id,
-    const std::string& assertion,
-    const std::string& error,
-    const std::string& group_profile_id = "");
+      const std::string& profile_id,
+      const std::string& assertion,
+      const std::string& error,
+      const std::string& group_profile_id = "");
+
+  void pushCorrelationId(uint64_t id) {
+    profiler_->pushCorrelationId(id);
+  }
+  void popCorrelationId() {
+    profiler_->popCorrelationId();
+  }
+
+  void pushUserCorrelationId(uint64_t id) {
+    profiler_->pushUserCorrelationId(id);
+  }
+  void popUserCorrelationId() {
+    profiler_->popUserCorrelationId();
+  }
 
  private:
   bool shouldActivateIterationConfig(int64_t currentIter);

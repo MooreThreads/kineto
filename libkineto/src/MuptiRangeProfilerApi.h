@@ -11,8 +11,10 @@
 #ifdef HAS_MUPTI
 #include <musa.h>
 #include <musa_runtime_api.h>
-// Using MUSA 11 and above due to usage of API: muptiProfilerGetCounterAvailability.
-#if defined(USE_MUPTI_RANGE_PROFILER) && defined(MUSART_VERSION) && MUSART_VERSION >= 10000 && MUSA_VERSION >= 11000
+// Using MUSA 11 and above due to usage of API:
+// muptiProfilerGetCounterAvailability.
+#if defined(USE_MUPTI_RANGE_PROFILER) && defined(MUSART_VERSION) && \
+    MUSART_VERSION >= 10000 && MUSA_VERSION >= 11000
 #define HAS_MUPTI_RANGE_PROFILER 1
 #endif // MUSART_VERSION > 10.00 and MUSA_VERSION >= 11.00
 #endif // HAS_MUPTI
@@ -22,14 +24,12 @@
 #include <mupti_profiler_target.h>
 #include <mupti_target.h>
 #else
-enum MUpti_ProfilerRange
-{
+enum MUpti_ProfilerRange {
   MUPTI_AutoRange,
   MUPTI_UserRange,
 };
 
-enum MUpti_ProfilerReplayMode
-{
+enum MUpti_ProfilerReplayMode {
   MUPTI_KernelReplay,
   MUPTI_UserReplay,
 };
@@ -37,15 +37,15 @@ enum MUpti_ProfilerReplayMode
 
 #include <chrono>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
-#include "TraceSpan.h"
 #include "MuptiCallbackApi.h"
 #include "MuptiNvPerfMetric.h"
+#include "TraceSpan.h"
 
 /* Mupti Range based profiler session
  * See : https://docs.nvidia.com/mupti/Mupti/r_main.html#r_profiler
@@ -62,13 +62,12 @@ struct MuptiRangeProfilerOptions {
   int deviceId = 0;
   int maxRanges = 1;
   int numNestingLevels = 1;
-  MUcontext muContext = 0;
+  MUcontext muContext = nullptr;
   bool unitTest = false;
 };
 
 class MuptiRBProfilerSession {
  public:
-
   explicit MuptiRBProfilerSession(const MuptiRangeProfilerOptions& opts);
 
   virtual ~MuptiRBProfilerSession();
@@ -127,7 +126,7 @@ class MuptiRBProfilerSession {
     evaluateMetrics(true);
   }
 
- TraceSpan getProfilerTraceSpan();
+  TraceSpan getProfilerTraceSpan();
 
   virtual MuptiProfilerResult evaluateMetrics(bool verbose = false);
 
@@ -169,11 +168,10 @@ class MuptiRBProfilerSession {
   MUpti_ProfilerRange curRange_ = MUPTI_AutoRange;
   MUpti_ProfilerReplayMode curReplay_ = MUPTI_KernelReplay;
 
-  std::chrono::time_point<std::chrono::high_resolution_clock>
-    profilerStartTs_, profilerStopTs_, profilerInitDoneTs_;
+  std::chrono::time_point<std::chrono::high_resolution_clock> profilerStartTs_,
+      profilerStopTs_, profilerInitDoneTs_;
 
  private:
-
   bool createCounterDataImage();
 
   // log kernel name that used with callbacks
@@ -227,7 +225,6 @@ struct MuptiRBProfilerSessionFactory : IMuptiRBProfilerSessionFactory {
   std::unique_ptr<MuptiRBProfilerSession> make(
       const MuptiRangeProfilerOptions& opts) override;
 };
-
 
 // called directly only in unit tests
 namespace testing {

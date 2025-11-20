@@ -42,6 +42,8 @@ static constexpr const char* kOutSplit = "Out split size";
 static constexpr const char* kProcessGroupName = "Process Group Name";
 static constexpr const char* kProcessGroupDesc = "Process Group Description";
 static constexpr const char* kGroupRanks = "Process Group Ranks";
+static constexpr const char* kInTensorsStart = "Input Tensors start";
+static constexpr const char* kOutTensorsStart = "Output Tensors start";
 static constexpr const char* kRank = "Rank";
 static constexpr const char* kP2pSrc = "Src Rank";
 static constexpr const char* kP2pDst = "Dst Rank";
@@ -79,6 +81,26 @@ void ChromeTraceLogger::sanitizeStrForJSON(std::string& value) {
   value.erase(std::remove(value.begin(), value.end(), '\n'), value.end());
 }
 
+static void sanitizeForNonReadableChars(std::string& value) {
+  for (auto& c : value) {
+    if (!std::isprint(c)) {
+      LOG(WARNING) << "Non JSON compliant character found in string: " << value
+                   << " Replacing with 'unknown'";
+      value = "unknown";
+      break;
+    }
+  }
+}
+
+static inline int32_t sanitizeTid(int32_t tid) {
+  // Convert all negative tids to its positive value. Create a specific case
+  // for INT_MIN so it is obvious how it is being handled.
+  if (tid == INT_MIN) {
+    return 0;
+  }
+  return std::abs(tid);
+}
+
 void ChromeTraceLogger::metadataToJSON(
     const std::unordered_map<std::string, std::string>& metadata) {
   for (auto [k, v]: metadata) {
@@ -95,14 +117,17 @@ void ChromeTraceLogger::metadataToJSON(
 }
 
 void ChromeTraceLogger::handleTraceStart(
-    const std::unordered_map<std::string, std::string>& metadata) {
-  traceOf_ << fmt::format(R"JSON(
+    const std::unordered_map<std::string, std::string>& metadata,
+    const std::string& device_properties) {
+  traceOf_ << fmt::format(
+      R"JSON(
 {{
   "schemaVersion": {},)JSON", kSchemaVersion);
 
   traceOf_ << fmt::format(R"JSON(
   "deviceProperties": [{}
-  ],)JSON", devicePropertiesJson());
+  ],)JSON",
+      device_properties);
 
   metadataToJSON(metadata);
   traceOf_ << R"JSON(
@@ -192,9 +217,9 @@ void ChromeTraceLogger::handleResourceInfo(
       "sort_index": {}
     }}
   }},)JSON",
-      time/1000, time%1000, info.deviceId, info.id,
+      time/1000, time%1000, info.deviceId, sanitizeTid(info.id),
       info.name,
-      time/1000, time%1000, info.deviceId, info.id,
+      time/1000, time%1000, info.deviceId, sanitizeTid(info.id),
       info.sortIndex);
   // clang-format on
 }
@@ -337,10 +362,28 @@ void ChromeTraceLogger::handleActivity(
     duration+=2; // Still need it to end at the original point rounded up.
   }
 
+  int external_id = 0;
+  if (op.linkedActivity()) {
+    external_id = op.linkedActivity()->correlationId();
+  } else {
+    // Some runtime events and kernels may not have a linked activity,
+    // should not set an "External id" for them. Otherwise, these events
+    // may be incorrectly linked to the other external events.
+    static const std::set<libkineto::ActivityType> excludedTypes = {
+        libkineto::ActivityType::GPU_MEMCPY,
+        libkineto::ActivityType::GPU_MEMSET,
+        libkineto::ActivityType::CONCURRENT_KERNEL,
+        libkineto::ActivityType::CUDA_RUNTIME,
+        libkineto::ActivityType::CUDA_DRIVER,
+        libkineto::ActivityType::PRIVATEUSE1_RUNTIME,
+        libkineto::ActivityType::PRIVATEUSE1_DRIVER};
+    if (excludedTypes.find(op.type()) == excludedTypes.end()) {
+      external_id = op.correlationId();
+    }
+  }
   std::string arg_values = "";
-  if (op.correlationId() != 0) {
-    arg_values.append(fmt::format("\"External id\": {}",
-      op.linkedActivity() ? op.linkedActivity()->correlationId() : op.correlationId()));
+  if (external_id != 0) {
+    arg_values.append(fmt::format("\"External id\": {}", external_id));
   }
   std::string op_metadata = op.metadataJson();
   sanitizeStrForJSON(op_metadata);
@@ -379,6 +422,24 @@ void ChromeTraceLogger::handleActivity(
           groupSize,
           kDtype,
           dtype));
+    }
+    const auto& input_tensor_starts =
+        collectiveRecord->getMetadataValue(kInTensorsStart);
+    const auto output_tensor_starts =
+        collectiveRecord->getMetadataValue(kOutTensorsStart);
+    if (!input_tensor_starts.empty()) {
+      if (!arg_values.empty()) {
+        arg_values.append(",");
+      }
+      arg_values.append(
+          fmt::format(" \"{}\": {}", kInTensorsStart, input_tensor_starts));
+    }
+    if (!output_tensor_starts.empty()) {
+      if (!arg_values.empty()) {
+        arg_values.append(",");
+      }
+      arg_values.append(
+          fmt::format(" \"{}\": {}", kOutTensorsStart, output_tensor_starts));
     }
     // In/out split size are valid for all_to_all
     const auto& inSplitSize = collectiveRecord->getMetadataValue(kInSplit);
@@ -461,6 +522,7 @@ void ChromeTraceLogger::handleActivity(
   // TODO: Remove this once legacy tools are updated.
   std::string op_name = op.name() == "kernel" ? "Kernel" : op.name();
   sanitizeStrForJSON(op_name);
+  sanitizeForNonReadableChars(op_name);
 
   // clang-format off
   ts = transToRelativeTime(ts);
@@ -469,7 +531,7 @@ void ChromeTraceLogger::handleActivity(
     "ph": "X", "cat": "{}", "name": "{}", "pid": {}, "tid": {},
     "ts": {}.{:03}, "dur": {}.{:03}{}
   }},)JSON",
-          toString(op.type()), op_name, device, resource,
+          toString(op.type()), op_name, device, sanitizeTid(resource),
           ts/1000, ts %1000, duration/1000, duration %1000, args);
   // clang-format on
   if (op.flowId() > 0) {
@@ -526,7 +588,7 @@ void ChromeTraceLogger::handleLink(
     "ph": "{}", "id": {}, "pid": {}, "tid": {}, "ts": {}.{:03},
     "cat": "{}", "name": "{}"{}
   }},)JSON",
-      type, id, e.deviceId(), e.resourceId(), ts/1000, ts%1000, name, name, binding);
+      type, id, e.deviceId(), sanitizeTid(e.resourceId()), ts/1000, ts%1000, name, name, binding);
   // clang-format on
 }
 

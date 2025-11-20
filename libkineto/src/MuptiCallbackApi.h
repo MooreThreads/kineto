@@ -17,6 +17,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <shared_mutex>
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
@@ -53,6 +54,7 @@ class MuptiCallbackApi {
     // can possibly support more callback ids per domain
     //
     __RUNTIME_CB_DOMAIN_START = MUSA_LAUNCH_KERNEL,
+    MUSA_LAUNCH_KERNEL_EXC, // Used in H100
 
     // Callbacks under Resource CB domain
     RESOURCE_CONTEXT_CREATED,
@@ -143,6 +145,11 @@ class MuptiCallbackApi {
   // As an implementation detail, cbid == 0xffffffff means enable the domain.
   std::set<std::pair<MUpti_CallbackDomain, MUpti_CallbackId>> enabledCallbacks_;
 
+  // Reader Writer lock types
+  using ReaderWriterLock = std::shared_timed_mutex;
+  using ReaderLockGuard = std::shared_lock<ReaderWriterLock>;
+  using WriteLockGuard = std::unique_lock<ReaderWriterLock>;
+  ReaderWriterLock callbackLock_;
 #ifdef HAS_MUPTI
   MUptiResult lastMuptiStatus_;
   MUpti_SubscriberHandle subscriber_ {nullptr};

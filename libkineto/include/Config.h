@@ -18,9 +18,7 @@
 #include <string>
 #include <vector>
 
-namespace KINETO_NAMESPACE {
-
-using namespace libkineto;
+namespace libkineto {
 
 class Config : public AbstractConfig {
  public:
@@ -47,7 +45,7 @@ class Config : public AbstractConfig {
 
   bool activityProfilerEnabled() const {
     return activityProfilerEnabled_ ||
-      activitiesOnDemandTimestamp_.time_since_epoch().count() > 0;
+        activitiesOnDemandTimestamp_.time_since_epoch().count() > 0;
   }
 
   // Log activitiy trace to this file
@@ -174,6 +172,11 @@ class Config : public AbstractConfig {
   // The types of activities selected in the configuration file
   const std::set<ActivityType>& selectedActivityTypes() const {
     return selectedActivityTypes_;
+  }
+
+  // Set the types of activities to be traced
+  bool perThreadBufferEnabled() const {
+    return perThreadBufferEnabled_;
   }
 
   void setSelectedActivityTypes(const std::set<ActivityType>& types) {
@@ -352,9 +355,9 @@ class Config : public AbstractConfig {
   }
 
   void updateActivityProfilerRequestReceivedTime();
-  void updateActivityProfilerStartTime();
 
   void printActivityProfilerConfig(std::ostream& s) const override;
+  void setActivityDependentConfig() override;
 
   void validate(const std::chrono::time_point<std::chrono::system_clock>&
                     fallbackProfileStartTime) override;
@@ -370,6 +373,14 @@ class Config : public AbstractConfig {
   // is destroyed before the threads stop. By hanging onto this handle,
   // correct destruction order can be ensured.
   static std::shared_ptr<void> getStaticObjectsLifetimeHandle();
+
+  bool getTSCTimestampFlag() const {
+    return useTSCTimestamp_;
+  }
+
+  void setTSCTimestampFlag(bool flag) {
+    useTSCTimestamp_ = flag;
+  }
 
  private:
   explicit Config(const Config& other) = default;
@@ -425,6 +436,9 @@ class Config : public AbstractConfig {
 
   // Activity profiler
   bool activityProfilerEnabled_;
+
+  // Enable per-thread buffer
+  bool perThreadBufferEnabled_;
   std::set<ActivityType> selectedActivityTypes_;
 
   // The activity profiler settings are all on-demand
@@ -489,12 +503,13 @@ class Config : public AbstractConfig {
   // MUPTI Device Buffer
   size_t muptiDeviceBufferSize_;
   size_t muptiDeviceBufferPoolLimit_;
+
+  // MUPTI Timestamp Format
+  bool useTSCTimestamp_{true};
 };
 
 constexpr char kUseDaemonEnvVar[] = "KINETO_USE_DAEMON";
 
-#if __linux__
 bool isDaemonEnvVarSet();
-#endif
 
 } // namespace libkineto

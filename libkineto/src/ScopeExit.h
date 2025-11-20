@@ -24,12 +24,11 @@ class ScopeExit {
 template <typename T>
 ScopeExit<T> makeScopeExit(T t) {
   return ScopeExit<T>(t);
-};
+}
 
 // Add a level of indirection so __LINE__ is expanded
 #define __kINETO_CONCAT(name, line) name##line
 #define ANON_VAR(name, line) __kINETO_CONCAT(name, line)
 
-#define SCOPE_EXIT(func)                                      \
-  const auto ANON_VAR(SCOPE_BLOCK, __LINE__) =                \
-      makeScopeExit([=]() { func; })
+#define SCOPE_EXIT(func) \
+  const auto ANON_VAR(SCOPE_BLOCK, __LINE__) = makeScopeExit([=]() { func; })

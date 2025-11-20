@@ -10,8 +10,8 @@
 
 #include <functional>
 
-#include <libkineto.h>
 #include <IActivityProfiler.h>
+#include <libkineto.h>
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
@@ -35,7 +35,7 @@ class MuptiRangeProfilerSession : public IActivityProfilerSession {
       const Config& config,
       IMuptiRBProfilerSessionFactory& factory);
 
-  ~MuptiRangeProfilerSession() override {};
+  ~MuptiRangeProfilerSession() override {}
 
   // start profiling
   void start() override;
@@ -68,10 +68,8 @@ class MuptiRangeProfilerSession : public IActivityProfilerSession {
   MUpti_ProfilerReplayMode replayType_ = MUPTI_UserReplay;
 
   CpuTraceBuffer traceBuffer_;
-  std::vector<
-    std::unique_ptr<MuptiRBProfilerSession>> profilers_;
+  std::vector<std::unique_ptr<MuptiRBProfilerSession>> profilers_;
 };
-
 
 /* This is a wrapper class that refers to the underlying
  * MuptiRangeProfiler. Using a wrapper libkineto can manage the ownership
@@ -108,6 +106,7 @@ class MuptiRangeProfiler : public libkineto::IActivityProfiler {
   // profiling sesssion.
   static void setPreRunCallback(MuptiProfilerPrePostCallback fn);
   static void setPostRunCallback(MuptiProfilerPrePostCallback fn);
+
  private:
   IMuptiRBProfilerSessionFactory& factory_;
 };

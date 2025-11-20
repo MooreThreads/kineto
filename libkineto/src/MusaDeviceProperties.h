@@ -20,6 +20,7 @@ namespace KINETO_NAMESPACE {
 int smCount(uint32_t deviceId);
 
 #ifdef HAS_MUPTI
+//TODO(MUpti_ActivityKernel6->MUpti_ActivityKernel4)
 float blocksPerSm(const MUpti_ActivityKernel6& kernel);
 float warpsPerSm(const MUpti_ActivityKernel6& kernel);
 
