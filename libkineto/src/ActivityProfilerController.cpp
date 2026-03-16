@@ -74,12 +74,16 @@ ActivityProfilerController::ActivityProfilerController(
 ActivityProfilerController::~ActivityProfilerController() {
   configLoader_.removeHandler(
       ConfigLoader::ConfigKind::ActivityProfiler, this);
-  if (profilerThread_) {
-    // signaling termination of the profiler loop
-    stopRunloop_ = true;
-    profilerThread_->join();
-    delete profilerThread_;
-    profilerThread_ = nullptr;
+  for (int thread_type = 0; thread_type < ThreadType::THREAD_MAX_COUNT;
+       thread_type++) {
+    std::thread* profilerThread = profilerThreads_[thread_type];
+    if (profilerThread) {
+      // signaling termination of the profiler loop
+      stopRunloop_ = true;
+      profilerThread->join();
+      delete profilerThread;
+      profilerThread = nullptr;
+    }
   }
 
 #if !USE_GOOGLE_LOG
@@ -234,6 +238,32 @@ void ActivityProfilerController::profilerLoop() {
   VLOG(0) << "Exited activity profiling loop";
 }
 
+void ActivityProfilerController::memoryProfilerLoop() {
+  std::string path = asyncRequestConfig_->activitiesLogFile();
+  auto profile_time = asyncRequestConfig_->profileMemoryDuration();
+  std::unique_ptr<Config> config = asyncRequestConfig_->clone();
+  while (!stopRunloop_) {
+    // Perform Double-checked locking to reduce overhead of taking lock.
+    if (asyncRequestConfig_ && !profiler_->isActive()) {
+      std::lock_guard<std::mutex> lock(asyncConfigLock_);
+      if (asyncRequestConfig_ && !profiler_->isActive() &&
+          asyncRequestConfig_->memoryProfilerEnabled()) {
+        logger_ = makeLogger(*asyncRequestConfig_);
+        path = asyncRequestConfig_->activitiesLogFile();
+        profile_time = asyncRequestConfig_->profileMemoryDuration();
+        config = asyncRequestConfig_->clone();
+        asyncRequestConfig_ = nullptr;
+      } else {
+        continue;
+      }
+    } else {
+      continue;
+    }
+
+    profiler_->performMemoryLoop(path, profile_time, logger_.get(), *config);
+  }
+}
+
 void ActivityProfilerController::step() {
   // Do not remove this copy to currentIter. Otherwise count is not guaranteed.
   int64_t currentIter = ++iterationCount_;
@@ -293,9 +323,18 @@ void ActivityProfilerController::scheduleTrace(const Config& config) {
   }
 
   // start a profilerLoop() thread to handle request
-  if (!profilerThread_) {
-    profilerThread_ =
-        new std::thread(&ActivityProfilerController::profilerLoop, this);
+  if (config.memoryProfilerEnabled()) {
+    auto thread_type = ThreadType::MEMORY_SNAPSHOT;
+    if (!profilerThreads_[thread_type]) {
+      profilerThreads_[thread_type] = new std::thread(
+          &ActivityProfilerController::memoryProfilerLoop, this);
+    }
+  } else {
+    auto thread_type = ThreadType::KINETO;
+    if (!profilerThreads_[thread_type]) {
+      profilerThreads_[thread_type] =
+          new std::thread(&ActivityProfilerController::profilerLoop, this);
+    }
   }
 }
 

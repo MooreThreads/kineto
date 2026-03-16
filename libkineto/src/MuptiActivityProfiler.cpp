@@ -819,13 +819,22 @@ void MuptiActivityProfiler::handleMuptiActivity(
           reinterpret_cast<const MUpti_ActivityMemcpy2*>(record), logger);
       break;
     case MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC:
+      LOG(INFO) << "handle memory-atomic";
       handleGpuActivity(
           reinterpret_cast<const MUpti_ActivityMemoryAtomic*>(record), logger);
       break;
     case MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC_VALUE:
+      LOG(INFO) << "handle memory-atomic-value";
       handleGpuActivity(
           reinterpret_cast<const MUpti_ActivityMemoryAtomicValue*>(record), logger);
       break;
+#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40306)
+    case MUPTI_ACTIVITY_KIND_MEMORY_TRANSFER:
+      LOG(INFO) << "handle memory-transfer";
+      handleGpuActivity(
+          reinterpret_cast<const MUpti_ActivityMemoryTransfer*>(record), logger);
+      break;
+#endif
     case MUPTI_ACTIVITY_KIND_MEMSET:
       handleGpuActivity(
           reinterpret_cast<const MUpti_ActivityMemset*>(record), logger);
@@ -1231,6 +1240,25 @@ const time_point<system_clock> MuptiActivityProfiler::performRunLoopStep(
   }
 
   return new_wakeup_time;
+}
+
+const void MuptiActivityProfiler::performMemoryLoop(
+    const string& path,
+    uint32_t profile_time,
+    ActivityLogger* logger,
+    Config& config) {
+  currentRunloopState_ = RunloopState::CollectMemorySnapshot;
+  if (libkineto::api().client()) {
+    libkineto::api().client()->start_memory_profile();
+    LOG(INFO) << "Running memory profiling for " << profile_time << " ms";
+    std::this_thread::sleep_for(std::chrono::milliseconds(profile_time));
+    LOG(INFO) << "Exporting memory profiling results to " << path;
+    libkineto::api().client()->export_memory_profile(path);
+    libkineto::api().client()->stop_memory_profile();
+    LOG(INFO) << "Finalizing trace";
+    logger->finalizeMemoryTrace(path, config);
+  }
+  currentRunloopState_ = RunloopState::WaitForRequest;
 }
 
 void MuptiActivityProfiler::finalizeTrace(const Config& config, ActivityLogger& logger) {

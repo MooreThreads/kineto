@@ -354,6 +354,14 @@ class Config : public AbstractConfig {
     return muptiDeviceBufferPoolLimit_;
   }
 
+  bool memoryProfilerEnabled() const {
+    return memoryProfilerEnabled_;
+  }
+  
+  int profileMemoryDuration() const {
+    return profileMemoryDuration_;
+  }
+
   void updateActivityProfilerRequestReceivedTime();
 
   void printActivityProfilerConfig(std::ostream& s) const override;
@@ -506,6 +514,10 @@ class Config : public AbstractConfig {
 
   // MUPTI Timestamp Format
   bool useTSCTimestamp_{true};
+
+  // Memory Profiler
+  bool memoryProfilerEnabled_{false};
+  int profileMemoryDuration_{1000};
 };
 
 constexpr char kUseDaemonEnvVar[] = "KINETO_USE_DAEMON";
