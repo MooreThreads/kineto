@@ -41,6 +41,7 @@ int main() {
     libkineto::ActivityType::OVERHEAD,
     libkineto::ActivityType::MTIA_RUNTIME,
     libkineto::ActivityType::MTIA_CCP_EVENTS,
+    libkineto::ActivityType::MTIA_INSIGHT,
     libkineto::ActivityType::CUDA_SYNC,
     libkineto::ActivityType::GLOW_RUNTIME,
     libkineto::ActivityType::CUDA_PROFILER_RANGE,

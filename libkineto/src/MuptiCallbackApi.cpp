@@ -65,7 +65,10 @@ static void callback_switchboard(
 
   // below statement is likey going to call a mutex
   // on the singleton access
-  // MuptiCallbackApi::singleton()->__callback_switchboard(domain, cbid, cbInfo);
+//#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40303)
+//  MuptiCallbackApi::singleton()->__callback_switchboard(
+//      domain, cbid, cbInfo);
+//#endif
 }
 
 
@@ -94,8 +97,9 @@ void MuptiCallbackApi::__callback_switchboard(
           LOG(INFO) << "  Calling muptiFinalize in exit callsite";
           // Teardown MUPTI calling muptiFinalize()
           MUPTI_CALL(muptiUnsubscribe(subscriber_));
-          // TODO: MUPTI muptiFinalize is not yet implemented
-          // MUPTI_CALL(muptiFinalize());
+#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40303)
+          MUPTI_CALL(muptiFinalize());
+#endif
           initSuccess_ = false;
           subscriber_ = nullptr;
           MuptiActivityApi::singleton().teardownMupti_ = 0;

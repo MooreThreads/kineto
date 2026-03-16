@@ -135,7 +135,7 @@ inline const std::string GpuActivity<MUpti_ActivityKernel6>::metadataJson() cons
 
 inline std::string memcpyName(uint8_t kind, uint8_t src, uint8_t dst) {
   return fmt::format(
-      "Memcpy {} ({} -> {})",
+      "Memcpy1 {} ({} -> {})",
       memcpyKindString((MUpti_ActivityMemcpyKind)kind),
       memoryKindString((MUpti_ActivityMemoryKind)src),
       memoryKindString((MUpti_ActivityMemoryKind)dst));
@@ -145,7 +145,7 @@ inline std::string memcpyName(uint8_t kind, uint8_t src, uint8_t dst) {
 
 inline std::string memoryAtomicName(uint8_t kind, uint8_t src, uint8_t dst) {
   return fmt::format(
-      "Memcpy {} ({} -> {})",
+      "Memcpy2 {} ({} -> {})",
       memoryAtomicKindString((MUpti_ActivityMemoryAtomicKind)kind),
       memoryKindString((MUpti_ActivityMemoryKind)src),
       memoryKindString((MUpti_ActivityMemoryKind)dst));
@@ -153,7 +153,7 @@ inline std::string memoryAtomicName(uint8_t kind, uint8_t src, uint8_t dst) {
 
 inline std::string memoryAtomicValueName(uint8_t kind, uint8_t dst) {
   return fmt::format(
-      "Memcpy {} ({} -> {})",
+      "Memcpy3 {} ({})",
       memoryAtomicValueKindString((MUpti_ActivityMemoryAtomicValueKind)kind),
       memoryKindString((MUpti_ActivityMemoryKind)dst));
 }
@@ -214,6 +214,32 @@ inline const std::string GpuActivity<MUpti_ActivityMemcpy2>::metadataJson() cons
       memcpy.bytes, bandwidth(memcpy.bytes, duration()));
   // clang-format on
 }
+
+#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40306)
+template<>
+inline ActivityType GpuActivity<MUpti_ActivityMemoryTransfer>::type() const {
+  return ActivityType::GPU_MEMCPY;
+}
+
+template<>
+inline const std::string GpuActivity<MUpti_ActivityMemoryTransfer>::name() const {
+  return "MemTransfer(d2d)";
+}
+
+template<>
+inline const std::string GpuActivity<MUpti_ActivityMemoryTransfer>::metadataJson() const {
+  const MUpti_ActivityMemoryTransfer& memcpy = raw();
+  // clang-format off
+  return fmt::format(R"JSON(
+      "device": {}, "context": {},
+      "stream": {}, "correlation": {},
+      "bytes": {}, "memory bandwidth (GB/s)": {})JSON",
+      memcpy.deviceId, memcpy.contextId,
+      memcpy.streamId, memcpy.correlationId,
+      memcpy.bytes, bandwidth(memcpy.bytes, memcpy.end - memcpy.start));
+  // clang-format on
+}
+#endif
 
 template<>
 inline ActivityType GpuActivity<MUpti_ActivityMemoryAtomic>::type() const {

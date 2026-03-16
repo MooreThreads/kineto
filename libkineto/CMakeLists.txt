@@ -222,3 +222,39 @@ if(KINETO_BUILD_TESTS)
   add_subdirectory(test)
   add_subdirectory("${LIBKINETO_THIRDPARTY_DIR}/googletest")
 endif()
+
+execute_process(
+  COMMAND musa_toolkits_version
+  OUTPUT_VARIABLE MUSA_VERSION_OUTPUT
+  RESULT_VARIABLE MUSA_VERSION_RESULT
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+if(MUSA_VERSION_RESULT EQUAL 0)
+  message(STATUS "MUSA toolkits found")
+  message(VERBOSE "Raw output: ${MUSA_VERSION_OUTPUT}")
+  
+  # parse the musatookit version
+  if(MUSA_VERSION_OUTPUT MATCHES "\"version\"[ \t]*:[ \t]*\"[ \t]*([0-9]+)[ \t]*\\.[ \t]*([0-9]+)[ \t]*\\.[ \t]*([0-9]+)[ \t]*\"")
+    set(MUSA_VERSION_MAJOR ${CMAKE_MATCH_1})
+    set(MUSA_VERSION_MINOR ${CMAKE_MATCH_2})
+    set(MUSA_VERSION_PATCH ${CMAKE_MATCH_3})
+    
+    # such as 4.3.2 -> 4 * 10000 + 3 * 100 + 2 = 40302
+    math(EXPR REAL_MUSA_VERSION_INT 
+         "${MUSA_VERSION_MAJOR} * 10000 + ${MUSA_VERSION_MINOR} * 100 + ${MUSA_VERSION_PATCH}")
+    
+    set(REAL_MUSA_VERSION ${REAL_MUSA_VERSION_INT})
+    
+    add_definitions(-DREAL_MUSA_VERSION=${REAL_MUSA_VERSION_INT})
+    
+    message(STATUS "MUSA version: ${MUSA_VERSION_MAJOR}.${MUSA_VERSION_MINOR}.${MUSA_VERSION_PATCH} -> ${REAL_MUSA_VERSION_INT}")
+    
+  else()
+    message(WARNING "Failed to parse MUSA version from output")
+    set(REAL_MUSA_VERSION 0)
+  endif()
+else()
+  message(WARNING "musa_toolkits_version command failed with result: ${MUSA_VERSION_RESULT}")
+  set(REAL_MUSA_VERSION 0)
+endif()

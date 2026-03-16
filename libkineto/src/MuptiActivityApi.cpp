@@ -319,6 +319,11 @@ void MuptiActivityApi::enableMuptiActivities(
   for (const auto& activity : selected_activities) {
     if (activity == ActivityType::GPU_MEMCPY) {
       MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_MEMCPY));
+      MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC));
+      MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC_VALUE));
+#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40306)
+      MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_MEMORY_TRANSFER));
+#endif
     }
     if (activity == ActivityType::GPU_MEMSET) {
       MUPTI_CALL(muptiActivityEnable(MUPTI_ACTIVITY_KIND_MEMSET));
@@ -357,6 +362,11 @@ void MuptiActivityApi::disableMuptiActivities(
   for (const auto& activity : selected_activities) {
     if (activity == ActivityType::GPU_MEMCPY) {
       MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_MEMCPY));
+      MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC));
+      MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC_VALUE));
+#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40306)
+      MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_MEMORY_TRANSFER));
+#endif
     }
     if (activity == ActivityType::GPU_MEMSET) {
       MUPTI_CALL(muptiActivityDisable(MUPTI_ACTIVITY_KIND_MEMSET));

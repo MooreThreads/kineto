@@ -118,6 +118,9 @@ class MuptiActivityProfiler {
   bool isActive() const {
     return currentRunloopState_ != RunloopState::WaitForRequest;
   }
+  bool isCollectingMemorySnapshot() const {
+    return currentRunloopState_ == RunloopState::CollectMemorySnapshot;
+  }
 
   // Invoke at a regular interval to perform profiling activities.
   // When not active, an interval of 1-5 seconds is probably fine,
@@ -128,6 +131,12 @@ class MuptiActivityProfiler {
       const std::chrono::time_point<std::chrono::system_clock>& now,
       const std::chrono::time_point<std::chrono::system_clock>& nextWakeupTime,
       int64_t currentIter = -1);
+
+  const void performMemoryLoop(
+      const std::string& path,
+      uint32_t profile_time,
+      ActivityLogger* logger,
+      Config& config);
 
   // Used for async requests
   void setLogger(ActivityLogger* logger) {
@@ -424,7 +433,8 @@ class MuptiActivityProfiler {
     WaitForRequest,
     Warmup,
     CollectTrace,
-    ProcessTrace
+    ProcessTrace,
+    CollectMemorySnapshot,
   };
 
   // All recorded trace spans, both CPU and GPU
