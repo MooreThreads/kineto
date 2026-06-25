@@ -367,7 +367,9 @@ inline const std::string RuntimeActivity::metadataJson() const {
 }
 
 inline bool isKernelLaunchApi(const MUpti_ActivityAPI& activity_) {
-  return activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernel;
+  return activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernel ||
+      activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernelEx ||
+      activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernelEx_ptsz;
 }
 
 inline bool DriverActivity::flowStart() const {
@@ -381,14 +383,17 @@ inline const std::string DriverActivity::metadataJson() const {
 }
 
 inline const std::string DriverActivity::name() const {
-  // currently only muLaunchKernel is expected
   assert(isKernelLaunchApi(activity_));
-  // not yet implementing full name matching
   if (activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernel) {
     return "muLaunchKernel";
-  } else {
-    return "Unknown"; // should not reach here
   }
+  if (activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernelEx) {
+    return "muLaunchKernelEx";
+  }
+  if (activity_.cbid == MUPTI_DRIVER_TRACE_CBID_muLaunchKernelEx_ptsz) {
+    return "muLaunchKernelEx_ptsz";
+  }
+  return "Unknown"; // should not reach here
 }
 
 template<class T>
