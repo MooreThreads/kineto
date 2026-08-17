@@ -40,6 +40,7 @@ enum class ActivityType {
     CUDA_PROFILER_RANGE, // MUPTI Profiler range for performance metrics
     HPU_OP, // HPU host side runtime event
     XPU_RUNTIME, // host side xpu runtime events
+    XPU_DRIVER, // host side xpu driver events
     COLLECTIVE_COMM, // collective communication
     MTIA_WORKLOADD, // MTIA workloadd events
 

@@ -38,6 +38,7 @@ static constexpr std::array<ActivityTypeName, activityTypeCount + 1> map{{
     {"musa_profiler_range", ActivityType::CUDA_PROFILER_RANGE},
     {"hpu_op", ActivityType::HPU_OP},
     {"xpu_runtime", ActivityType::XPU_RUNTIME},
+    {"xpu_driver", ActivityType::XPU_DRIVER},
     {"collective_comm", ActivityType::COLLECTIVE_COMM},
     {"mtia_workloadd", ActivityType::MTIA_WORKLOADD},
     {"privateuse1_runtime", ActivityType::PRIVATEUSE1_RUNTIME},
