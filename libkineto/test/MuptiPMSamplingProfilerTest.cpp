@@ -16,20 +16,20 @@
 #include <vector>
 
 #include "include/Config.h"
-#include "src/CuptiPMSamplingProfiler.h"
-#include "src/CuptiTimestamp.h"
+#include "src/MuptiPMSamplingProfiler.h"
+#include "src/MuptiTimestamp.h"
 #include "src/output_membuf.h"
 
 using namespace KINETO_NAMESPACE;
 
 namespace {
 
-class FakeCuptiPMSamplingController final : public ICuptiPMSamplingController {
+class FakeMuptiPMSamplingController final : public IMuptiPMSamplingController {
  public:
-  FakeCuptiPMSamplingController(
+  FakeMuptiPMSamplingController(
       int32_t deviceId,
       std::vector<std::string> metricNames,
-      std::vector<CuptiPMSample> samples = {})
+      std::vector<MuptiPMSample> samples = {})
       : deviceId_(deviceId),
         metricNames_(std::move(metricNames)),
         samples_(std::move(samples)) {}
@@ -56,7 +56,7 @@ class FakeCuptiPMSamplingController final : public ICuptiPMSamplingController {
     return metricNames_;
   }
 
-  std::vector<CuptiPMSample> takeSamples() override {
+  std::vector<MuptiPMSample> takeSamples() override {
     ++takeSamplesCalls;
     return std::exchange(samples_, {});
   }
@@ -71,7 +71,7 @@ class FakeCuptiPMSamplingController final : public ICuptiPMSamplingController {
  private:
   int32_t deviceId_;
   std::vector<std::string> metricNames_;
-  std::vector<CuptiPMSample> samples_;
+  std::vector<MuptiPMSample> samples_;
 };
 
 const std::set<ActivityType> kHardwareCounterActivities{
@@ -79,20 +79,20 @@ const std::set<ActivityType> kHardwareCounterActivities{
 
 } // namespace
 
-TEST(CuptiPMSamplingProfilerTest, ReportsNameAndSupportedActivity) {
-  CuptiPMSamplingProfiler profiler;
+TEST(MuptiPMSamplingProfilerTest, ReportsNameAndSupportedActivity) {
+  MuptiPMSamplingProfiler profiler;
 
-  EXPECT_EQ(profiler.name(), "CUPTI PM Sampling");
+  EXPECT_EQ(profiler.name(), "MUPTI PM Sampling");
   EXPECT_EQ(profiler.availableActivities(), kHardwareCounterActivities);
 }
 
-TEST(CuptiPMSamplingProfilerTest, RequiresActivityMetricsAndDevice) {
-  CuptiPMSamplingProfiler profiler;
+TEST(MuptiPMSamplingProfilerTest, RequiresActivityMetricsAndDevice) {
+  MuptiPMSamplingProfiler profiler;
 
   Config validConfig;
   ASSERT_TRUE(
-      validConfig.parse("CUPTI_PM_SAMPLING_METRICS = sm__cycles_active.avg\n"
-                        "CUPTI_PM_SAMPLING_DEVICE_ID = 0"));
+      validConfig.parse("MUPTI_PM_SAMPLING_METRICS = sm__cycles_active.avg\n"
+                        "MUPTI_PM_SAMPLING_DEVICE_ID = 0"));
   EXPECT_EQ(
       profiler.configure(
           /*startTimeMs=*/123,
@@ -102,37 +102,37 @@ TEST(CuptiPMSamplingProfilerTest, RequiresActivityMetricsAndDevice) {
       nullptr);
 
   Config missingMetrics;
-  ASSERT_TRUE(missingMetrics.parse("CUPTI_PM_SAMPLING_DEVICE_ID = 0"));
+  ASSERT_TRUE(missingMetrics.parse("MUPTI_PM_SAMPLING_DEVICE_ID = 0"));
   EXPECT_EQ(
       profiler.configure(kHardwareCounterActivities, missingMetrics), nullptr);
 
   Config missingDevice;
   ASSERT_TRUE(
-      missingDevice.parse("CUPTI_PM_SAMPLING_METRICS = sm__cycles_active.avg"));
+      missingDevice.parse("MUPTI_PM_SAMPLING_METRICS = sm__cycles_active.avg"));
   EXPECT_EQ(
       profiler.configure(kHardwareCounterActivities, missingDevice), nullptr);
 }
 
-TEST(CuptiPMSamplingSessionTest, ReportsPreparationFailure) {
-  configureCuptiTimestampSource(false);
-  auto controller = std::make_unique<FakeCuptiPMSamplingController>(
+TEST(MuptiPMSamplingSessionTest, ReportsPreparationFailure) {
+  configureMuptiTimestampSource(false);
+  auto controller = std::make_unique<FakeMuptiPMSamplingController>(
       0, std::vector<std::string>{"sm__cycles_active.avg"});
   controller->prepareResult = false;
   auto* controllerPtr = controller.get();
-  CuptiPMSamplingSession session(std::move(controller));
+  MuptiPMSamplingSession session(std::move(controller));
 
   EXPECT_FALSE(session.prepare());
   EXPECT_EQ(controllerPtr->prepareCalls, 1);
 }
 
-TEST(CuptiPMSamplingSessionTest, InactiveStopDoesNotBuildTrace) {
-  auto controller = std::make_unique<FakeCuptiPMSamplingController>(
+TEST(MuptiPMSamplingSessionTest, InactiveStopDoesNotBuildTrace) {
+  auto controller = std::make_unique<FakeMuptiPMSamplingController>(
       0,
       std::vector<std::string>{"sm__cycles_active.avg"},
-      std::vector<CuptiPMSample>{CuptiPMSample{100, 120, {1.25}}});
+      std::vector<MuptiPMSample>{MuptiPMSample{100, 120, {1.25}}});
   controller->stopResult = false;
   auto* controllerPtr = controller.get();
-  CuptiPMSamplingSession session(std::move(controller));
+  MuptiPMSamplingSession session(std::move(controller));
 
   session.stop();
 
@@ -146,17 +146,17 @@ TEST(CuptiPMSamplingSessionTest, InactiveStopDoesNotBuildTrace) {
   EXPECT_TRUE(logger.traceActivities()->empty());
 }
 
-TEST(CuptiPMSamplingSessionTest, BuildsHardwareCounterActivities) {
-  configureCuptiTimestampSource(false);
-  auto controller = std::make_unique<FakeCuptiPMSamplingController>(
+TEST(MuptiPMSamplingSessionTest, BuildsHardwareCounterActivities) {
+  configureMuptiTimestampSource(false);
+  auto controller = std::make_unique<FakeMuptiPMSamplingController>(
       2,
       std::vector<std::string>{"sm__cycles_active.avg", "dram__bytes_read.sum"},
-      std::vector<CuptiPMSample>{
-          CuptiPMSample{100, 120, {1.25, 2048.0}},
-          CuptiPMSample{130, 170, {2.5, 4096.0}},
+      std::vector<MuptiPMSample>{
+          MuptiPMSample{100, 120, {1.25, 2048.0}},
+          MuptiPMSample{130, 170, {2.5, 4096.0}},
       });
   auto* controllerPtr = controller.get();
-  CuptiPMSamplingSession session(std::move(controller));
+  MuptiPMSamplingSession session(std::move(controller));
   ASSERT_TRUE(session.prepare());
   session.start();
   session.stop();
@@ -174,7 +174,7 @@ TEST(CuptiPMSamplingSessionTest, BuildsHardwareCounterActivities) {
 
   const auto& first = *loggedActivities->at(0);
   EXPECT_EQ(first.type(), ActivityType::HARDWARE_COUNTERS);
-  EXPECT_EQ(first.name(), "CUPTI PM Sampling");
+  EXPECT_EQ(first.name(), "MUPTI PM Sampling");
   EXPECT_EQ(first.deviceId(), 2);
   EXPECT_EQ(first.timestamp(), 100);
   EXPECT_EQ(first.duration(), 20);
@@ -193,7 +193,7 @@ TEST(CuptiPMSamplingSessionTest, BuildsHardwareCounterActivities) {
 
   auto buffer = session.getTraceBuffer();
   ASSERT_NE(buffer, nullptr);
-  EXPECT_EQ(buffer->span.name, "CUPTI PM Sampling");
+  EXPECT_EQ(buffer->span.name, "MUPTI PM Sampling");
   EXPECT_EQ(buffer->span.startTime, 100);
   EXPECT_EQ(buffer->span.endTime, 170);
   EXPECT_EQ(buffer->activities.size(), 2);

@@ -10,22 +10,22 @@
 
 #include <fmt/format.h>
 
-#ifdef HAS_CUPTI
+#ifdef HAS_MUPTI
 #include <stdexcept>
 
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cupti.h>
+#include <musa.h>
+#include <musa_runtime.h>
+#include <mupti.h>
 
 #include "ThrowUtil.h"
 
 // ok to use fmt::format as error will not occur often. Can't use fmt::print
 // easily since LOG(...) can return void, causes compiler error
-#define CUDA_CALL(call)                                    \
-  [&]() -> cudaError_t {                                   \
-    cudaError_t _status_ = call;                           \
-    if (_status_ != cudaSuccess) {                         \
-      const char* _errstr_ = cudaGetErrorString(_status_); \
+#define MUSA_CALL(call)                                    \
+  [&]() -> musaError_t {                                   \
+    musaError_t _status_ = call;                           \
+    if (_status_ != musaSuccess) {                         \
+      const char* _errstr_ = musaGetErrorString(_status_); \
       LOG(WARNING) << fmt::format(                         \
           "function {} failed with error {} ({})",         \
           #call,                                           \
@@ -35,12 +35,12 @@
     return _status_;                                       \
   }()
 
-#define CUPTI_CALL(call)                           \
-  [&]() -> CUptiResult {                           \
-    CUptiResult _status_ = call;                   \
-    if (_status_ != CUPTI_SUCCESS) {               \
+#define MUPTI_CALL(call)                           \
+  [&]() -> MUptiResult {                           \
+    MUptiResult _status_ = call;                   \
+    if (_status_ != MUPTI_SUCCESS) {               \
       const char* _errstr_ = nullptr;              \
-      cuptiGetResultString(_status_, &_errstr_);   \
+      muptiGetResultString(_status_, &_errstr_);   \
       LOG(WARNING) << fmt::format(                 \
           "function {} failed with error {} ({})", \
           #call,                                   \
@@ -51,12 +51,12 @@
   }()
 
 // clang-format off
-#define CUPTI_CALL_THROW(call)                    \
+#define MUPTI_CALL_THROW(call)                    \
   do {                                            \
-    CUptiResult _status_ = (call);                \
-    if (_status_ != CUPTI_SUCCESS) {              \
+    MUptiResult _status_ = (call);                \
+    if (_status_ != MUPTI_SUCCESS) {              \
       const char* _errstr_ = nullptr;             \
-      cuptiGetResultString(_status_, &_errstr_);  \
+      muptiGetResultString(_status_, &_errstr_);  \
       KINETO_THROW(                               \
           std::runtime_error,                     \
           fmt::format(                            \
@@ -64,7 +64,7 @@
               #call,                              \
               _errstr_ != nullptr                 \
                   ? _errstr_                      \
-                  : "unknown CUPTI error"));      \
+                  : "unknown MUPTI error"));      \
     }                                             \
   } while (false)
 // clang-format on
@@ -73,7 +73,7 @@
 #include <hip/hip_runtime.h>
 #include <rocprofiler-sdk/version.h>
 
-#define CUDA_CALL(call)                                   \
+#define MUSA_CALL(call)                                   \
   {                                                       \
     hipError_t _status_ = call;                           \
     if (_status_ != hipSuccess) {                         \
@@ -86,19 +86,19 @@
     }                                                     \
   }
 
-#define CUPTI_CALL(call) call
+#define MUPTI_CALL(call) call
 
 #else
-#define CUPTI_CALL(call) call
-#endif // HAS_CUPTI
+#define MUPTI_CALL(call) call
+#endif // HAS_MUPTI
 
-#define CUPTI_CALL_NOWARN(call) call
+#define MUPTI_CALL_NOWARN(call) call
 
 namespace KINETO_NAMESPACE {
 
 bool isAMDGpuAvailable();
 
-bool isCUDAGpuAvailable();
+bool isMUSAGpuAvailable();
 
 bool isGpuAvailable();
 

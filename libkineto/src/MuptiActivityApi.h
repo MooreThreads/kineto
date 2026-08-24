@@ -15,52 +15,52 @@
 #include <mutex>
 #include <set>
 
-#include <cupti.h>
+#include <mupti.h>
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
 #include "ActivityType.h"
-#include "CuptiActivityBuffer.h"
-#include "CuptiCallbackApi.h"
+#include "MuptiActivityBuffer.h"
+#include "MuptiCallbackApi.h"
 
 namespace KINETO_NAMESPACE {
 
 using namespace libkineto;
 
-class CuptiActivityApi {
+class MuptiActivityApi {
  public:
   enum CorrelationFlowType { Default, User };
-  // Control Variables shared with CuptiCallbackApi for teardown
-  std::atomic<uint32_t> teardownCupti_{0};
+  // Control Variables shared with MuptiCallbackApi for teardown
+  std::atomic<uint32_t> teardownMupti_{0};
   std::mutex finalizeMutex_;
   std::condition_variable finalizeCond_;
 
-  CuptiActivityApi() = default;
-  CuptiActivityApi(const CuptiActivityApi&) = delete;
-  CuptiActivityApi& operator=(const CuptiActivityApi&) = delete;
+  MuptiActivityApi() = default;
+  MuptiActivityApi(const MuptiActivityApi&) = delete;
+  MuptiActivityApi& operator=(const MuptiActivityApi&) = delete;
 
-  virtual ~CuptiActivityApi() = default;
+  virtual ~MuptiActivityApi() = default;
 
-  static CuptiActivityApi& singleton();
+  static MuptiActivityApi& singleton();
 
   static void pushCorrelationID(int id, CorrelationFlowType type);
   static void popCorrelationID(CorrelationFlowType type);
 
   virtual bool isAvailable(uint32_t& version) const;
-  void enableCuptiActivities(
+  void enableMuptiActivities(
       const std::set<ActivityType>& selected_activities,
       bool enablePerThreadBuffers = false);
-  void disableCuptiActivities(
+  void disableMuptiActivities(
       const std::set<ActivityType>& selected_activities);
   void clearActivities();
   void flushActivities();
   void teardownContext();
 
-  virtual std::unique_ptr<CuptiActivityBufferMap> activityBuffers();
+  virtual std::unique_ptr<MuptiActivityBufferMap> activityBuffers();
 
   virtual const std::pair<int, size_t> processActivities(
-      CuptiActivityBufferMap&,
-      const std::function<void(const CUpti_Activity*)>& handler);
+      MuptiActivityBufferMap&,
+      const std::function<void(const MUpti_Activity*)>& handler);
 
   void setMaxBufferSize(int64_t size);
   void setDeviceBufferSize(size_t size);
@@ -69,15 +69,15 @@ class CuptiActivityApi {
   std::atomic_bool stopCollection{false};
   int64_t flushOverhead{0};
 
-  static void forceLoadCupti();
+  static void forceLoadMupti();
 
-  // CUPTI configuraiton that needs to be set before CUDA context creation
-  static void preConfigureCUPTI();
+  // MUPTI configuraiton that needs to be set before MUSA context creation
+  static void preConfigureMUPTI();
 
  private:
   int64_t maxGpuBufferCount_{0};
-  CuptiActivityBufferMap allocatedGpuTraceBuffers_;
-  std::unique_ptr<CuptiActivityBufferMap> readyGpuTraceBuffers_;
+  MuptiActivityBufferMap allocatedGpuTraceBuffers_;
+  std::unique_ptr<MuptiActivityBufferMap> readyGpuTraceBuffers_;
   std::mutex mutex_;
   std::atomic<uint32_t> tracingEnabled_{0};
   std::atomic<uint32_t> tearingDown_{0};
@@ -86,13 +86,13 @@ class CuptiActivityApi {
   int processActivitiesForBuffer(
       uint8_t* buf,
       size_t validSize,
-      const std::function<void(const CUpti_Activity*)>& handler);
-  static void CUPTIAPI bufferRequestedTrampoline(
+      const std::function<void(const MUpti_Activity*)>& handler);
+  static void MUPTIAPI bufferRequestedTrampoline(
       uint8_t** buffer,
       size_t* size,
       size_t* maxNumRecords);
-  static void CUPTIAPI bufferCompletedTrampoline(
-      CUcontext ctx,
+  static void MUPTIAPI bufferCompletedTrampoline(
+      MUcontext ctx,
       uint32_t streamId,
       uint8_t* buffer,
       size_t /* unused */,
@@ -102,7 +102,7 @@ class CuptiActivityApi {
   bool canRejectBuffer_{false};
   void bufferRequested(uint8_t** buffer, size_t* size, size_t* maxNumRecords);
   void bufferCompleted(
-      CUcontext ctx,
+      MUcontext ctx,
       uint32_t streamId,
       uint8_t* buffer,
       size_t /* unused */,

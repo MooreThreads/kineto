@@ -6,20 +6,20 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "CuptiCbidRegistry.h"
+#include "MuptiCbidRegistry.h"
 #include "ThrowUtil.h"
 
 #include <stdexcept>
 
 namespace KINETO_NAMESPACE {
 
-CuptiCbidRegistry& CuptiCbidRegistry::instance() {
-  static CuptiCbidRegistry instance;
+MuptiCbidRegistry& MuptiCbidRegistry::instance() {
+  static MuptiCbidRegistry instance;
   return instance;
 }
 
-std::unordered_map<uint32_t, CuptiCbidRegistry::CbidProperties>&
-CuptiCbidRegistry::getMapForDomain(CallbackDomain domain) {
+std::unordered_map<uint32_t, MuptiCbidRegistry::CbidProperties>&
+MuptiCbidRegistry::getMapForDomain(CallbackDomain domain) {
   switch (domain) {
     case CallbackDomain::RUNTIME:
       return runtimeCallbacks_;
@@ -30,7 +30,7 @@ CuptiCbidRegistry::getMapForDomain(CallbackDomain domain) {
   }
 }
 
-void CuptiCbidRegistry::registerCbid(
+void MuptiCbidRegistry::registerCbid(
     CallbackDomain domain,
     uint32_t cbid,
     bool requiresFlowCorrelation,
@@ -39,7 +39,7 @@ void CuptiCbidRegistry::registerCbid(
       CbidProperties{requiresFlowCorrelation, isBlocklisted};
 }
 
-void CuptiCbidRegistry::registerCbidRange(
+void MuptiCbidRegistry::registerCbidRange(
     CallbackDomain domain,
     uint32_t startCbid,
     uint32_t endCbid,
@@ -50,43 +50,43 @@ void CuptiCbidRegistry::registerCbidRange(
       CbidRange{startCbid, endCbid, requiresFlowCorrelation, isBlocklisted});
 }
 
-CuptiCbidRegistry::CuptiCbidRegistry() {
+MuptiCbidRegistry::MuptiCbidRegistry() {
   // =========================================================================
   // RUNTIME API - Kernel Launches
   // =========================================================================
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernel_v7000,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernel_v9000,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaLaunchCooperativeKernel_v9000,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
       /*cbid=*/
-      CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernelMultiDevice_v9000,
+      MUPTI_RUNTIME_TRACE_CBID_musaLaunchCooperativeKernelMultiDevice_v9000,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
-#if defined(CUPTI_API_VERSION) && CUPTI_API_VERSION >= 18
+#if defined(MUPTI_API_VERSION) && MUPTI_API_VERSION >= 18
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_v11060,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernelExC_v11060,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 #endif
 
   // =========================================================================
-  // RUNTIME API - CUDA Graph Operations
+  // RUNTIME API - MUSA Graph Operations
   // =========================================================================
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaGraphLaunch_v10000,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaGraphLaunch_v10000,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
@@ -95,19 +95,19 @@ CuptiCbidRegistry::CuptiCbidRegistry() {
   // =========================================================================
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaStreamSynchronize_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaStreamSynchronize_v3020,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaDeviceSynchronize_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaDeviceSynchronize_v3020,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaStreamWaitEvent_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaStreamWaitEvent_v3020,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
@@ -116,8 +116,8 @@ CuptiCbidRegistry::CuptiCbidRegistry() {
   // =========================================================================
   registerCbidRange(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*startCbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaMemcpy_v3020,
-      /*endCbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaMemset2DAsync_v3020,
+      /*startCbid=*/MUPTI_RUNTIME_TRACE_CBID_musaMemcpy_v3020,
+      /*endCbid=*/MUPTI_RUNTIME_TRACE_CBID_musaMemset2DAsync_v3020,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 
@@ -126,37 +126,37 @@ CuptiCbidRegistry::CuptiCbidRegistry() {
   // =========================================================================
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaGetDevice_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaGetDevice_v3020,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/true);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaSetDevice_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaSetDevice_v3020,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/true);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaGetLastError_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaGetLastError_v3020,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/true);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaEventCreate_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaEventCreate_v3020,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/true);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaEventCreateWithFlags_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaEventCreateWithFlags_v3020,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/true);
 
   registerCbid(
       /*domain=*/CallbackDomain::RUNTIME,
-      /*cbid=*/CUPTI_RUNTIME_TRACE_CBID_cudaEventDestroy_v3020,
+      /*cbid=*/MUPTI_RUNTIME_TRACE_CBID_musaEventDestroy_v3020,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/true);
 
@@ -165,49 +165,49 @@ CuptiCbidRegistry::CuptiCbidRegistry() {
   // =========================================================================
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muLaunchKernel,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
-#if defined(CUDA_VERSION) && CUDA_VERSION >= 11060
+#if defined(MUSA_VERSION) && MUSA_VERSION >= 11060
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muLaunchKernelEx,
       /*requiresFlowCorrelation=*/true,
       /*isBlocklisted=*/false);
 #endif
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuMemCreate,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muMemCreate,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/false);
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuMemMap,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muMemMap,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/false);
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuMemUnmap,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muMemUnmap,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/false);
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuMemRelease,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muMemRelease,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/false);
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuMemExportToShareableHandle,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muMemExportToShareableHandle,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/false);
   registerCbid(
       /*domain=*/CallbackDomain::DRIVER,
-      /*cbid=*/CUPTI_DRIVER_TRACE_CBID_cuMemImportFromShareableHandle,
+      /*cbid=*/MUPTI_DRIVER_TRACE_CBID_muMemImportFromShareableHandle,
       /*requiresFlowCorrelation=*/false,
       /*isBlocklisted=*/false);
 }
 
-bool CuptiCbidRegistry::requiresFlowCorrelation(
+bool MuptiCbidRegistry::requiresFlowCorrelation(
     CallbackDomain domain,
     uint32_t cbid) {
   // Check explicit callback IDs first
@@ -226,7 +226,7 @@ bool CuptiCbidRegistry::requiresFlowCorrelation(
   return false;
 }
 
-bool CuptiCbidRegistry::isBlocklisted(CallbackDomain domain, uint32_t cbid) {
+bool MuptiCbidRegistry::isBlocklisted(CallbackDomain domain, uint32_t cbid) {
   // Check explicit callbacks first
   const auto& map = getMapForDomain(domain);
   if (auto it = map.find(cbid); it != map.end()) {
@@ -243,7 +243,7 @@ bool CuptiCbidRegistry::isBlocklisted(CallbackDomain domain, uint32_t cbid) {
   return false;
 }
 
-bool CuptiCbidRegistry::isRegistered(CallbackDomain domain, uint32_t cbid) {
+bool MuptiCbidRegistry::isRegistered(CallbackDomain domain, uint32_t cbid) {
   const auto& map = getMapForDomain(domain);
   if (map.contains(cbid)) {
     return true;

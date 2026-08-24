@@ -51,10 +51,10 @@ void read_inputs_from_json(
     folly::dynamic jsonTestArgs = sJsonParsed["test_args"];
     test_args->num_operations =
         (uint32_t)jsonTestArgs["num_operations"].asInt();
-    test_args->num_cuda_streams =
-        (uint32_t)jsonTestArgs["num_cuda_streams"].asInt();
-    test_args->prob_cuda_malloc =
-        (double)jsonTestArgs["prob_cuda_malloc"].asDouble();
+    test_args->num_musa_streams =
+        (uint32_t)jsonTestArgs["num_musa_streams"].asInt();
+    test_args->prob_musa_malloc =
+        (double)jsonTestArgs["prob_musa_malloc"].asDouble();
     test_args->min_iters_kernel =
         (uint32_t)jsonTestArgs["min_iters_kernel"].asInt();
     test_args->max_iters_kernel =
@@ -92,8 +92,8 @@ void read_inputs_from_json(
         (uint32_t)jsonTestArgs["trace_delay_us"].asInt();
     test_args->trace_length_us =
         (uint32_t)jsonTestArgs["trace_length_us"].asInt();
-    test_args->cupti_buffer_mb =
-        (uint32_t)jsonTestArgs["cupti_buffer_mb"].asInt();
+    test_args->mupti_buffer_mb =
+        (uint32_t)jsonTestArgs["mupti_buffer_mb"].asInt();
 
     folly::dynamic cacheArgs = sJsonParsed["cache_args"];
     cache_args->sz_cache_KB = (uint32_t)cacheArgs["sz_cache_KB"].asInt();

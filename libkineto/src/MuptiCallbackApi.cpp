@@ -8,8 +8,8 @@
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
-#include "CuptiCallbackApi.h"
-#include "CuptiActivityApi.h"
+#include "MuptiCallbackApi.h"
+#include "MuptiActivityApi.h"
 
 #include <algorithm>
 #include <cassert>
@@ -26,7 +26,7 @@ constexpr size_t MAX_CB_FNS_PER_CB = 8;
 
 // Use this value in enabledCallbacks_ set, when all cbids in a domain
 // is enabled, not a specific cbid.
-constexpr uint32_t MAX_CUPTI_CALLBACK_ID_ALL = 0xffffffff;
+constexpr uint32_t MAX_MUPTI_CALLBACK_ID_ALL = 0xffffffff;
 
 /* Callback Table :
  *  Overall goal of the design is to optimize the lookup of function
@@ -44,7 +44,7 @@ constexpr uint32_t MAX_CUPTI_CALLBACK_ID_ALL = 0xffffffff;
  */
 
 /* callback_switchboard : is the global callback handler we register
- *  with CUPTI. The goal is to make it as efficient as possible
+ *  with MUPTI. The goal is to make it as efficient as possible
  *  to re-direct to the registered callback(s).
  *
  *  Few things to care about :
@@ -52,71 +52,71 @@ constexpr uint32_t MAX_CUPTI_CALLBACK_ID_ALL = 0xffffffff;
  *   b) avoid dynamic memory allocations
  *   c) be aware of locking overheads
  */
-static void CUPTIAPI callback_switchboard(
+static void MUPTIAPI callback_switchboard(
     void* /* unused */,
-    CUpti_CallbackDomain domain,
-    CUpti_CallbackId cbid,
-    const CUpti_CallbackData* cbInfo) {
+    MUpti_CallbackDomain domain,
+    MUpti_CallbackId cbid,
+    const MUpti_CallbackData* cbInfo) {
   // __callback_switchboard acquires a reader lock
   // on the callback list
-  CuptiCallbackApi::singleton().__callback_switchboard(domain, cbid, cbInfo);
+  MuptiCallbackApi::singleton().__callback_switchboard(domain, cbid, cbInfo);
 }
 
-void CuptiCallbackApi::__callback_switchboard(
-    CUpti_CallbackDomain domain,
-    CUpti_CallbackId cbid,
-    const CUpti_CallbackData* cbInfo) {
+void MuptiCallbackApi::__callback_switchboard(
+    MUpti_CallbackDomain domain,
+    MUpti_CallbackId cbid,
+    const MUpti_CallbackData* cbInfo) {
   LOG(INFO) << "Callback: domain = " << domain << ", cbid = " << cbid;
   CallbackList* cblist = nullptr;
 
   switch (domain) {
     // add the fastest path for kernel launch callbacks
     // as these are the most frequent ones
-    case CUPTI_CB_DOMAIN_RUNTIME_API:
+    case MUPTI_CB_DOMAIN_RUNTIME_API:
       switch (cbid) {
-        case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000:
+        case MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernel_v7000:
           cblist = &callbacks_.runtime[domainIndex(
-              CuptiCallBackID::CUDA_LAUNCH_KERNEL,
-              CuptiCallBackID::__RUNTIME_CB_DOMAIN_START)];
+              MuptiCallBackID::MUSA_LAUNCH_KERNEL,
+              MuptiCallBackID::__RUNTIME_CB_DOMAIN_START)];
           break;
-#if defined(CUDA_VERSION) && (CUDA_VERSION >= 11080)
-        case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_v11060:
+#if defined(MUSA_VERSION) && (MUSA_VERSION >= 11080)
+        case MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernelExC_v11060:
           cblist = &callbacks_.runtime[domainIndex(
-              CuptiCallBackID::CUDA_LAUNCH_KERNEL_EXC,
-              CuptiCallBackID::__RUNTIME_CB_DOMAIN_START)];
+              MuptiCallBackID::MUSA_LAUNCH_KERNEL_EXC,
+              MuptiCallBackID::__RUNTIME_CB_DOMAIN_START)];
           break;
 #endif
         default:
           break;
       }
-      // This is required to teardown cupti after profiling to prevent QPS
+      // This is required to teardown mupti after profiling to prevent QPS
       // slowdown.
-      if (CuptiActivityApi::singleton().teardownCupti_) {
-        if (cbInfo->callbackSite == CUPTI_API_EXIT) {
-          LOG(INFO) << "  Calling cuptiFinalize in exit callsite";
-          // Teardown CUPTI calling cuptiFinalize()
-          CUPTI_CALL(cuptiUnsubscribe(subscriber_));
-          CUPTI_CALL(cuptiFinalize());
+      if (MuptiActivityApi::singleton().teardownMupti_) {
+        if (cbInfo->callbackSite == MUPTI_API_EXIT) {
+          LOG(INFO) << "  Calling muptiFinalize in exit callsite";
+          // Teardown MUPTI calling muptiFinalize()
+          MUPTI_CALL(muptiUnsubscribe(subscriber_));
+          MUPTI_CALL(muptiFinalize());
           initSuccess_ = false;
           subscriber_ = nullptr;
-          CuptiActivityApi::singleton().teardownCupti_ = 0;
-          CuptiActivityApi::singleton().finalizeCond_.notify_all();
+          MuptiActivityApi::singleton().teardownMupti_ = 0;
+          MuptiActivityApi::singleton().finalizeCond_.notify_all();
           return;
         }
       }
       break;
 
-    case CUPTI_CB_DOMAIN_RESOURCE:
+    case MUPTI_CB_DOMAIN_RESOURCE:
       switch (cbid) {
-        case CUPTI_CBID_RESOURCE_CONTEXT_CREATED:
+        case MUPTI_CBID_RESOURCE_CONTEXT_CREATED:
           cblist = &callbacks_.resource[domainIndex(
-              CuptiCallBackID::RESOURCE_CONTEXT_CREATED,
-              CuptiCallBackID::__RESOURCE_CB_DOMAIN_START)];
+              MuptiCallBackID::RESOURCE_CONTEXT_CREATED,
+              MuptiCallBackID::__RESOURCE_CB_DOMAIN_START)];
           break;
-        case CUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING:
+        case MUPTI_CBID_RESOURCE_CONTEXT_DESTROY_STARTING:
           cblist = &callbacks_.resource[domainIndex(
-              CuptiCallBackID::RESOURCE_CONTEXT_DESTROYED,
-              CuptiCallBackID::__RESOURCE_CB_DOMAIN_START)];
+              MuptiCallBackID::RESOURCE_CONTEXT_DESTROYED,
+              MuptiCallBackID::__RESOURCE_CB_DOMAIN_START)];
           break;
         default:
           break;
@@ -134,7 +134,7 @@ void CuptiCallbackApi::__callback_switchboard(
 
   // make a copy of the callback list so we avoid holding lock
   // in common case this should be just one func pointer copy
-  std::array<CuptiCallbackFn, MAX_CB_FNS_PER_CB> callbacks;
+  std::array<MuptiCallbackFn, MAX_CB_FNS_PER_CB> callbacks;
   size_t num_cbs = 0;
   {
     ReaderLockGuard rl(callbackLock_);
@@ -153,43 +153,43 @@ void CuptiCallbackApi::__callback_switchboard(
   }
 }
 
-CuptiCallbackApi& CuptiCallbackApi::singleton() {
-  static auto* instance = new CuptiCallbackApi();
+MuptiCallbackApi& MuptiCallbackApi::singleton() {
+  static auto* instance = new MuptiCallbackApi();
   return *instance;
 }
 
-void CuptiCallbackApi::initCallbackApi() {
-  lastCuptiStatus_ = CUPTI_ERROR_UNKNOWN;
-  lastCuptiStatus_ = CUPTI_CALL_NOWARN(cuptiSubscribe(
+void MuptiCallbackApi::initCallbackApi() {
+  lastMuptiStatus_ = MUPTI_ERROR_UNKNOWN;
+  lastMuptiStatus_ = MUPTI_CALL_NOWARN(muptiSubscribe(
       &subscriber_,
-      reinterpret_cast<CUpti_CallbackFunc>(callback_switchboard),
+      reinterpret_cast<MUpti_CallbackFunc>(callback_switchboard),
       nullptr));
 
   // TODO: Remove temporarily to work around static initialization order issue
   // betweent this and GLOG.
-  // if (lastCuptiStatus_ != CUPTI_SUCCESS) {
-  //   LOG(INFO) << "Failed cuptiSubscribe, status: " << lastCuptiStatus_;
+  // if (lastMuptiStatus_ != MUPTI_SUCCESS) {
+  //   LOG(INFO) << "Failed muptiSubscribe, status: " << lastMuptiStatus_;
   // }
 
-  initSuccess_ = (lastCuptiStatus_ == CUPTI_SUCCESS);
+  initSuccess_ = (lastMuptiStatus_ == MUPTI_SUCCESS);
 }
 
-CuptiCallbackApi::CallbackList* CuptiCallbackApi::CallbackTable::lookup(
-    CUpti_CallbackDomain domain,
-    CuptiCallBackID cbid) {
+MuptiCallbackApi::CallbackList* MuptiCallbackApi::CallbackTable::lookup(
+    MUpti_CallbackDomain domain,
+    MuptiCallBackID cbid) {
   size_t idx;
 
   switch (domain) {
-    case CUPTI_CB_DOMAIN_RESOURCE:
-      assert(cbid >= CuptiCallBackID::__RESOURCE_CB_DOMAIN_START);
-      assert(cbid < CuptiCallBackID::__RESOURCE_CB_DOMAIN_END);
-      idx = domainIndex(cbid, CuptiCallBackID::__RESOURCE_CB_DOMAIN_START);
+    case MUPTI_CB_DOMAIN_RESOURCE:
+      assert(cbid >= MuptiCallBackID::__RESOURCE_CB_DOMAIN_START);
+      assert(cbid < MuptiCallBackID::__RESOURCE_CB_DOMAIN_END);
+      idx = domainIndex(cbid, MuptiCallBackID::__RESOURCE_CB_DOMAIN_START);
       return &resource.at(idx);
 
-    case CUPTI_CB_DOMAIN_RUNTIME_API:
-      assert(cbid >= CuptiCallBackID::__RUNTIME_CB_DOMAIN_START);
-      assert(cbid < CuptiCallBackID::__RUNTIME_CB_DOMAIN_END);
-      idx = domainIndex(cbid, CuptiCallBackID::__RUNTIME_CB_DOMAIN_START);
+    case MUPTI_CB_DOMAIN_RUNTIME_API:
+      assert(cbid >= MuptiCallBackID::__RUNTIME_CB_DOMAIN_START);
+      assert(cbid < MuptiCallBackID::__RUNTIME_CB_DOMAIN_END);
+      idx = domainIndex(cbid, MuptiCallBackID::__RUNTIME_CB_DOMAIN_START);
       return &runtime.at(idx);
 
     default:
@@ -198,10 +198,10 @@ CuptiCallbackApi::CallbackList* CuptiCallbackApi::CallbackTable::lookup(
   }
 }
 
-bool CuptiCallbackApi::registerCallback(
-    CUpti_CallbackDomain domain,
-    CuptiCallBackID cbid,
-    CuptiCallbackFn cbfn) {
+bool MuptiCallbackApi::registerCallback(
+    MUpti_CallbackDomain domain,
+    MuptiCallBackID cbid,
+    MuptiCallbackFn cbfn) {
   CallbackList* cblist = callbacks_.lookup(domain, cbid);
 
   if (!cblist) {
@@ -228,10 +228,10 @@ bool CuptiCallbackApi::registerCallback(
   return true;
 }
 
-bool CuptiCallbackApi::deleteCallback(
-    CUpti_CallbackDomain domain,
-    CuptiCallBackID cbid,
-    CuptiCallbackFn cbfn) {
+bool MuptiCallbackApi::deleteCallback(
+    MUpti_CallbackDomain domain,
+    MuptiCallBackID cbid,
+    MuptiCallbackFn cbfn) {
   CallbackList* cblist = callbacks_.lookup(domain, cbid);
   if (!cblist) {
     LOG(WARNING) << "Attempting to remove unsupported callback -- domain = "
@@ -255,62 +255,62 @@ bool CuptiCallbackApi::deleteCallback(
   return true;
 }
 
-bool CuptiCallbackApi::enableCallback(
-    CUpti_CallbackDomain domain,
-    CUpti_CallbackId cbid) {
+bool MuptiCallbackApi::enableCallback(
+    MUpti_CallbackDomain domain,
+    MUpti_CallbackId cbid) {
   if (initSuccess_) {
-    lastCuptiStatus_ =
-        CUPTI_CALL_NOWARN(cuptiEnableCallback(1, subscriber_, domain, cbid));
+    lastMuptiStatus_ =
+        MUPTI_CALL_NOWARN(muptiEnableCallback(1, subscriber_, domain, cbid));
     enabledCallbacks_.insert({domain, cbid});
-    return (lastCuptiStatus_ == CUPTI_SUCCESS);
+    return (lastMuptiStatus_ == MUPTI_SUCCESS);
   }
   return false;
 }
 
-bool CuptiCallbackApi::disableCallback(
-    CUpti_CallbackDomain domain,
-    CUpti_CallbackId cbid) {
+bool MuptiCallbackApi::disableCallback(
+    MUpti_CallbackDomain domain,
+    MUpti_CallbackId cbid) {
   enabledCallbacks_.erase({domain, cbid});
   if (initSuccess_) {
-    lastCuptiStatus_ =
-        CUPTI_CALL_NOWARN(cuptiEnableCallback(0, subscriber_, domain, cbid));
-    return (lastCuptiStatus_ == CUPTI_SUCCESS);
+    lastMuptiStatus_ =
+        MUPTI_CALL_NOWARN(muptiEnableCallback(0, subscriber_, domain, cbid));
+    return (lastMuptiStatus_ == MUPTI_SUCCESS);
   }
   return false;
 }
 
-bool CuptiCallbackApi::enableCallbackDomain(CUpti_CallbackDomain domain) {
+bool MuptiCallbackApi::enableCallbackDomain(MUpti_CallbackDomain domain) {
   if (initSuccess_) {
-    lastCuptiStatus_ =
-        CUPTI_CALL_NOWARN(cuptiEnableDomain(1, subscriber_, domain));
-    enabledCallbacks_.insert({domain, MAX_CUPTI_CALLBACK_ID_ALL});
-    return (lastCuptiStatus_ == CUPTI_SUCCESS);
+    lastMuptiStatus_ =
+        MUPTI_CALL_NOWARN(muptiEnableDomain(1, subscriber_, domain));
+    enabledCallbacks_.insert({domain, MAX_MUPTI_CALLBACK_ID_ALL});
+    return (lastMuptiStatus_ == MUPTI_SUCCESS);
   }
   return false;
 }
 
-bool CuptiCallbackApi::disableCallbackDomain(CUpti_CallbackDomain domain) {
-  enabledCallbacks_.erase({domain, MAX_CUPTI_CALLBACK_ID_ALL});
+bool MuptiCallbackApi::disableCallbackDomain(MUpti_CallbackDomain domain) {
+  enabledCallbacks_.erase({domain, MAX_MUPTI_CALLBACK_ID_ALL});
   if (initSuccess_) {
-    lastCuptiStatus_ =
-        CUPTI_CALL_NOWARN(cuptiEnableDomain(0, subscriber_, domain));
-    return (lastCuptiStatus_ == CUPTI_SUCCESS);
+    lastMuptiStatus_ =
+        MUPTI_CALL_NOWARN(muptiEnableDomain(0, subscriber_, domain));
+    return (lastMuptiStatus_ == MUPTI_SUCCESS);
   }
   return false;
 }
 
-bool CuptiCallbackApi::reenableCallbacks() {
+bool MuptiCallbackApi::reenableCallbacks() {
   if (initSuccess_) {
     for (auto& cbpair : enabledCallbacks_) {
-      if (static_cast<uint32_t>(cbpair.second) == MAX_CUPTI_CALLBACK_ID_ALL) {
-        lastCuptiStatus_ =
-            CUPTI_CALL_NOWARN(cuptiEnableDomain(1, subscriber_, cbpair.first));
+      if (static_cast<uint32_t>(cbpair.second) == MAX_MUPTI_CALLBACK_ID_ALL) {
+        lastMuptiStatus_ =
+            MUPTI_CALL_NOWARN(muptiEnableDomain(1, subscriber_, cbpair.first));
       } else {
-        lastCuptiStatus_ = CUPTI_CALL_NOWARN(
-            cuptiEnableCallback(1, subscriber_, cbpair.first, cbpair.second));
+        lastMuptiStatus_ = MUPTI_CALL_NOWARN(
+            muptiEnableCallback(1, subscriber_, cbpair.first, cbpair.second));
       }
     }
-    return (lastCuptiStatus_ == CUPTI_SUCCESS);
+    return (lastMuptiStatus_ == MUPTI_SUCCESS);
   }
   return false;
 }

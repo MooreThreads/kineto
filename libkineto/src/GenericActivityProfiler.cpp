@@ -96,7 +96,7 @@ std::ostream& operator<<(
       << ", Invalid ext correlations = "
       << ecs.invalid_external_correlation_events
       << ", CPU GPU out-of-order = " << ecs.gpu_and_cpu_op_out_of_order
-      << ", Unexpected CUDA events = " << ecs.unexepected_cuda_events
+      << ", Unexpected MUSA events = " << ecs.unexepected_musa_events
       << ", GPU stopped early? = " << ecs.gpu_stopped_early;
   return oss;
 }
@@ -363,9 +363,9 @@ inline void GenericActivityProfiler::updateGpuNetSpan(
 void GenericActivityProfiler::checkTimestampOrder(const ITraceActivity* act1) {
   // Correlated GPU runtime activity cannot
   // have timestamp greater than the GPU activity's
-  const auto& it = correlatedCudaActivities_.find(act1->correlationId());
-  if (it == correlatedCudaActivities_.end()) {
-    correlatedCudaActivities_.insert({act1->correlationId(), act1});
+  const auto& it = correlatedMusaActivities_.find(act1->correlationId());
+  if (it == correlatedMusaActivities_.end()) {
+    correlatedMusaActivities_.insert({act1->correlationId(), act1});
     return;
   }
 
@@ -373,7 +373,7 @@ void GenericActivityProfiler::checkTimestampOrder(const ITraceActivity* act1) {
   // If we have a runtime activity in the map, it should mean that we
   // have a GPU activity passed in, and vice versa.
   const ITraceActivity* act2 = it->second;
-  if (act2->type() == ActivityType::CUDA_RUNTIME) {
+  if (act2->type() == ActivityType::PRIVATEUSE1_RUNTIME) {
     // Buffer is out-of-order.
     // Swap so that runtime activity is first for the comparison below.
     std::swap(act1, act2);
@@ -504,7 +504,7 @@ void GenericActivityProfiler::configure(
   }
 
   if (!cpuOnly_) {
-    // Enabling CUPTI activity tracing incurs a larger perf hit at first,
+    // Enabling MUPTI activity tracing incurs a larger perf hit at first,
     // presumably because structures are allocated and initialized, callbacks
     // are activated etc. After a while the overhead decreases and stabilizes.
     // It's therefore useful to perform some warmup before starting recording.
@@ -695,7 +695,7 @@ void GenericActivityProfiler::finalizeTrace(
       // In some cases, CPU sockets are numbered starting from 0.
       // In the worst case, 8 CPU sockets + 8 GPUs, so the max GPU ID is 15.
       //
-      // TODO: We should either use a defined constant from Cupti or make an
+      // TODO: We should either use a defined constant from Mupti or make an
       //       API call to get this value.
       constexpr int kMaxGpuID = 15;
       // sortIndex is gpu + kExceedMaxPid to put GPU tracks at the bottom
@@ -774,7 +774,7 @@ void GenericActivityProfiler::resetTraceData() {
   }
   activityMap_.clear();
   cpuCorrelationMap_.clear();
-  correlatedCudaActivities_.clear();
+  correlatedMusaActivities_.clear();
   gpuUserEventMap_.clear();
   traceSpans_.clear();
   clientActivityTraceMap_.clear();

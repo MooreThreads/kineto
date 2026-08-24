@@ -28,8 +28,8 @@
 #include "include/time_since_epoch.h"
 #include "src/ActivityTrace.h"
 #include "src/ApproximateClock.h"
-#include "src/CuptiActivityApi.h"
-#include "src/CuptiActivityProfiler.h"
+#include "src/MuptiActivityApi.h"
+#include "src/MuptiActivityProfiler.h"
 #include "src/output_json.h"
 #include "src/output_membuf.h"
 
@@ -43,19 +43,19 @@ using namespace std::chrono;
 using namespace KINETO_NAMESPACE;
 using namespace libkineto::test;
 
-#define CUDA_LAUNCH_KERNEL CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000
-#define CUDA_MEMCPY CUPTI_RUNTIME_TRACE_CBID_cudaMemcpy_v3020
-#define CUDA_STREAM_SYNC CUPTI_RUNTIME_TRACE_CBID_cudaStreamSynchronize_v3020
-#define CUDA_EVENT_SYNC CUPTI_RUNTIME_TRACE_CBID_cudaEventSynchronize_v3020
+#define MUSA_LAUNCH_KERNEL MUPTI_RUNTIME_TRACE_CBID_musaLaunchKernel_v7000
+#define MUSA_MEMCPY MUPTI_RUNTIME_TRACE_CBID_musaMemcpy_v3020
+#define MUSA_STREAM_SYNC MUPTI_RUNTIME_TRACE_CBID_musaStreamSynchronize_v3020
+#define MUSA_EVENT_SYNC MUPTI_RUNTIME_TRACE_CBID_musaEventSynchronize_v3020
 
-#define CU_LAUNCH_KERNEL CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel
-#define CU_LAUNCH_KERNEL_EX CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx
-#define CU_MEM_CREATE CUPTI_DRIVER_TRACE_CBID_cuMemCreate
-#define CU_MEM_MAP CUPTI_DRIVER_TRACE_CBID_cuMemMap
-#define CU_MEM_UNMAP CUPTI_DRIVER_TRACE_CBID_cuMemUnmap
-#define CU_MEM_RELEASE CUPTI_DRIVER_TRACE_CBID_cuMemRelease
-#define CU_MEM_EXPORT CUPTI_DRIVER_TRACE_CBID_cuMemExportToShareableHandle
-#define CU_MEM_IMPORT CUPTI_DRIVER_TRACE_CBID_cuMemImportFromShareableHandle
+#define CU_LAUNCH_KERNEL MUPTI_DRIVER_TRACE_CBID_muLaunchKernel
+#define CU_LAUNCH_KERNEL_EX MUPTI_DRIVER_TRACE_CBID_muLaunchKernelEx
+#define CU_MEM_CREATE MUPTI_DRIVER_TRACE_CBID_muMemCreate
+#define CU_MEM_MAP MUPTI_DRIVER_TRACE_CBID_muMemMap
+#define CU_MEM_UNMAP MUPTI_DRIVER_TRACE_CBID_muMemUnmap
+#define CU_MEM_RELEASE MUPTI_DRIVER_TRACE_CBID_muMemRelease
+#define CU_MEM_EXPORT MUPTI_DRIVER_TRACE_CBID_muMemExportToShareableHandle
+#define CU_MEM_IMPORT MUPTI_DRIVER_TRACE_CBID_muMemImportFromShareableHandle
 
 namespace {
 using RecordedMetadataValue = std::variant<
@@ -134,43 +134,43 @@ class RecordingTypedMetadataVisitor final : public ITypedMetadataVisitor {
 };
 } // namespace
 
-// Provides ability to easily create a few test CUPTI ops
-struct MockCuptiActivityBuffer {
+// Provides ability to easily create a few test MUPTI ops
+struct MockMuptiActivityBuffer {
   void addCorrelationActivity(
       int64_t correlation,
-      CUpti_ExternalCorrelationKind externalKind,
+      MUpti_ExternalCorrelationKind externalKind,
       int64_t externalId) {
-    auto& act = createActivity<CUpti_ActivityExternalCorrelation>(correlation);
-    act.kind = CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION;
+    auto& act = createActivity<MUpti_ActivityExternalCorrelation>(correlation);
+    act.kind = MUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION;
     act.externalId = externalId;
     act.externalKind = externalKind;
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
   void addRuntimeActivity(
-      CUpti_runtime_api_trace_cbid_enum cbid,
+      MUpti_runtime_api_trace_cbid_enum cbid,
       int64_t start_ns,
       int64_t end_ns,
       int64_t correlation) {
     auto& act =
-        createActivity<CUpti_ActivityAPI>(start_ns, end_ns, correlation);
-    act.kind = CUPTI_ACTIVITY_KIND_RUNTIME;
+        createActivity<MUpti_ActivityAPI>(start_ns, end_ns, correlation);
+    act.kind = MUPTI_ACTIVITY_KIND_RUNTIME;
     act.cbid = cbid;
     act.threadId = threadId();
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
   void addDriverActivity(
-      CUpti_driver_api_trace_cbid_enum cbid,
+      MUpti_driver_api_trace_cbid_enum cbid,
       int64_t start_ns,
       int64_t end_ns,
       int64_t correlation) {
     auto& act =
-        createActivity<CUpti_ActivityAPI>(start_ns, end_ns, correlation);
-    act.kind = CUPTI_ACTIVITY_KIND_DRIVER;
+        createActivity<MUpti_ActivityAPI>(start_ns, end_ns, correlation);
+    act.kind = MUPTI_ACTIVITY_KIND_DRIVER;
     act.cbid = cbid;
     act.threadId = threadId();
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
   void addKernelActivity(
@@ -181,15 +181,15 @@ struct MockCuptiActivityBuffer {
       uint32_t contextId = 0,
       uint32_t streamId = 1) {
     auto& act =
-        createActivity<CUpti_ActivityKernelType>(start_ns, end_ns, correlation);
-    act.kind = CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL;
+        createActivity<MUpti_ActivityKernelType>(start_ns, end_ns, correlation);
+    act.kind = MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL;
     act.deviceId = deviceId;
     act.contextId = contextId;
     act.streamId = streamId;
     act.name = "kernel";
     act.gridX = act.gridY = act.gridZ = 1;
     act.blockX = act.blockY = act.blockZ = 1;
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
   void addMemcpyActivity(
@@ -197,45 +197,45 @@ struct MockCuptiActivityBuffer {
       int64_t end_ns,
       int64_t correlation) {
     auto& act =
-        createActivity<CUpti_ActivityMemcpyType>(start_ns, end_ns, correlation);
-    act.kind = CUPTI_ACTIVITY_KIND_MEMCPY;
+        createActivity<MUpti_ActivityMemcpyType>(start_ns, end_ns, correlation);
+    act.kind = MUPTI_ACTIVITY_KIND_MEMCPY;
     act.deviceId = 0;
     act.streamId = 2;
-    act.copyKind = CUPTI_ACTIVITY_MEMCPY_KIND_HTOD;
-    act.srcKind = CUPTI_ACTIVITY_MEMORY_KIND_PINNED;
-    act.dstKind = CUPTI_ACTIVITY_MEMORY_KIND_DEVICE;
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    act.copyKind = MUPTI_ACTIVITY_MEMCPY_KIND_HTOD;
+    act.srcKind = MUPTI_ACTIVITY_MEMORY_KIND_PINNED;
+    act.dstKind = MUPTI_ACTIVITY_MEMORY_KIND_DEVICE;
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
   void addSyncActivity(
       int64_t start_ns,
       int64_t end_ns,
       int64_t correlation,
-      CUpti_ActivitySynchronizationType type,
+      MUpti_ActivitySynchronizationType type,
       int64_t stream = 1,
-      uint32_t cudaEventId = 0,
+      uint32_t musaEventId = 0,
       uint32_t contextId = 0) {
-    auto& act = createActivity<CUpti_ActivitySynchronization>(
+    auto& act = createActivity<MUpti_ActivitySynchronization>(
         start_ns, end_ns, correlation);
-    act.kind = CUPTI_ACTIVITY_KIND_SYNCHRONIZATION;
+    act.kind = MUPTI_ACTIVITY_KIND_SYNCHRONIZATION;
     act.type = type;
     act.contextId = contextId;
     act.streamId = stream;
-    act.cudaEventId = cudaEventId;
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    act.musaEventId = musaEventId;
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
-  void addCudaEventActivity(
+  void addMusaEventActivity(
       int64_t correlation,
       uint32_t eventId,
       uint32_t streamId = 1,
       uint32_t contextId = 0) {
-    auto& act = createActivity<CUpti_ActivityCudaEventType>(correlation);
-    act.kind = CUPTI_ACTIVITY_KIND_CUDA_EVENT;
+    auto& act = createActivity<MUpti_ActivityMusaEventType>(correlation);
+    act.kind = MUPTI_ACTIVITY_KIND_MUSA_EVENT;
     act.eventId = eventId;
     act.streamId = streamId;
     act.contextId = contextId;
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
   void addCollectiveActivity(
@@ -243,9 +243,9 @@ struct MockCuptiActivityBuffer {
       int64_t end_ns,
       int64_t correlation) {
     auto& act =
-        createActivity<CUpti_ActivityKernelType>(start_ns, end_ns, correlation);
+        createActivity<MUpti_ActivityKernelType>(start_ns, end_ns, correlation);
     act.name = "collective_gpu";
-    act.kind = CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL;
+    act.kind = MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL;
     act.queued = 0;
     act.deviceId = 0;
     act.contextId = 1;
@@ -255,7 +255,7 @@ struct MockCuptiActivityBuffer {
     act.dynamicSharedMemory = 1024;
     act.gridX = act.gridY = act.gridZ = 1;
     act.blockX = act.blockY = act.blockZ = 1;
-    activities.push_back(reinterpret_cast<CUpti_Activity*>(&act));
+    activities.push_back(reinterpret_cast<MUpti_Activity*>(&act));
   }
 
   template <class T>
@@ -276,18 +276,18 @@ struct MockCuptiActivityBuffer {
     return act;
   }
 
-  ~MockCuptiActivityBuffer() {
-    for (CUpti_Activity* act : activities) {
+  ~MockMuptiActivityBuffer() {
+    for (MUpti_Activity* act : activities) {
       free(act);
     }
   }
 
-  std::vector<CUpti_Activity*> activities;
+  std::vector<MUpti_Activity*> activities;
 };
 
-class CallbackCuptiActivityApi : public CuptiActivityApi {
+class CallbackMuptiActivityApi : public MuptiActivityApi {
  public:
-  using CuptiActivityApi::canRejectBuffer_;
+  using MuptiActivityApi::canRejectBuffer_;
 
   std::pair<uint8_t*, size_t> requestBuffer(
       uint8_t* buffer = nullptr,
@@ -303,8 +303,8 @@ class CallbackCuptiActivityApi : public CuptiActivityApi {
   }
 };
 
-// Mock parts of the CuptiActivityApi
-class MockCuptiActivities : public CuptiActivityApi {
+// Mock parts of the MuptiActivityApi
+class MockMuptiActivities : public MuptiActivityApi {
  public:
   bool isAvailable(uint32_t& version) const override {
     version = 0;
@@ -312,79 +312,79 @@ class MockCuptiActivities : public CuptiActivityApi {
   }
 
   const std::pair<int, size_t> processActivities(
-      [[maybe_unused]] CuptiActivityBufferMap& bufferMap,
-      const std::function<void(const CUpti_Activity*)>& handler) override {
-    for (CUpti_Activity* act : activityBuffer->activities) {
+      [[maybe_unused]] MuptiActivityBufferMap& bufferMap,
+      const std::function<void(const MUpti_Activity*)>& handler) override {
+    for (MUpti_Activity* act : activityBuffer->activities) {
       handler(act);
     }
     return {activityBuffer->activities.size(), 100};
   }
 
-  std::unique_ptr<CuptiActivityBufferMap> activityBuffers() override {
-    auto map = std::make_unique<CuptiActivityBufferMap>();
-    auto buf = std::make_unique<CuptiActivityBuffer>(100);
+  std::unique_ptr<MuptiActivityBufferMap> activityBuffers() override {
+    auto map = std::make_unique<MuptiActivityBufferMap>();
+    auto buf = std::make_unique<MuptiActivityBuffer>(100);
     uint8_t* addr = buf->data();
     (*map)[addr] = std::move(buf);
     return map;
   }
 
-  std::unique_ptr<MockCuptiActivityBuffer> activityBuffer;
+  std::unique_ptr<MockMuptiActivityBuffer> activityBuffer;
   bool available{true};
 };
 
-TEST(CuptiActivityApiTest, KeepsReturningValidBuffersWhenRejectionUnsupported) {
-  CallbackCuptiActivityApi cupti;
-  cupti.canRejectBuffer_ = false;
-  cupti.setMaxBufferSize(0);
+TEST(MuptiActivityApiTest, KeepsReturningValidBuffersWhenRejectionUnsupported) {
+  CallbackMuptiActivityApi mupti;
+  mupti.canRejectBuffer_ = false;
+  mupti.setMaxBufferSize(0);
 
-  auto [firstBuffer, firstSize] = cupti.requestBuffer();
+  auto [firstBuffer, firstSize] = mupti.requestBuffer();
   ASSERT_NE(firstBuffer, nullptr);
   ASSERT_GT(firstSize, 0);
-  EXPECT_FALSE(cupti.stopCollection);
-  auto [secondBuffer, secondSize] = cupti.requestBuffer(firstBuffer, firstSize);
-  EXPECT_TRUE(cupti.stopCollection);
+  EXPECT_FALSE(mupti.stopCollection);
+  auto [secondBuffer, secondSize] = mupti.requestBuffer(firstBuffer, firstSize);
+  EXPECT_TRUE(mupti.stopCollection);
 
   ASSERT_NE(secondBuffer, nullptr);
   ASSERT_GT(secondSize, 0);
 
-  auto [thirdBuffer, thirdSize] = cupti.requestBuffer();
+  auto [thirdBuffer, thirdSize] = mupti.requestBuffer();
   ASSERT_NE(thirdBuffer, nullptr);
   EXPECT_NE(thirdBuffer, secondBuffer);
 
-  cupti.completeBuffer(firstBuffer, firstSize);
-  cupti.completeBuffer(secondBuffer, secondSize);
-  cupti.completeBuffer(thirdBuffer, thirdSize);
-  EXPECT_EQ(cupti.activityBuffers(), nullptr);
+  mupti.completeBuffer(firstBuffer, firstSize);
+  mupti.completeBuffer(secondBuffer, secondSize);
+  mupti.completeBuffer(thirdBuffer, thirdSize);
+  EXPECT_EQ(mupti.activityBuffers(), nullptr);
 }
 
-TEST(CuptiActivityApiTest, RejectsBuffersWhenSupported) {
-  CallbackCuptiActivityApi cupti;
-  cupti.canRejectBuffer_ = true;
-  cupti.setMaxBufferSize(0);
+TEST(MuptiActivityApiTest, RejectsBuffersWhenSupported) {
+  CallbackMuptiActivityApi mupti;
+  mupti.canRejectBuffer_ = true;
+  mupti.setMaxBufferSize(0);
 
-  auto [firstBuffer, firstSize] = cupti.requestBuffer();
+  auto [firstBuffer, firstSize] = mupti.requestBuffer();
   ASSERT_NE(firstBuffer, nullptr);
   ASSERT_GT(firstSize, 0);
-  EXPECT_FALSE(cupti.stopCollection);
+  EXPECT_FALSE(mupti.stopCollection);
 
-  auto [secondBuffer, secondSize] = cupti.requestBuffer(firstBuffer, firstSize);
-  EXPECT_TRUE(cupti.stopCollection);
+  auto [secondBuffer, secondSize] = mupti.requestBuffer(firstBuffer, firstSize);
+  EXPECT_TRUE(mupti.stopCollection);
   EXPECT_EQ(secondBuffer, nullptr);
   EXPECT_EQ(secondSize, 0);
 
-  cupti.completeBuffer(firstBuffer, firstSize);
-  auto [thirdBuffer, thirdSize] = cupti.requestBuffer(firstBuffer, firstSize);
+  mupti.completeBuffer(firstBuffer, firstSize);
+  auto [thirdBuffer, thirdSize] = mupti.requestBuffer(firstBuffer, firstSize);
   EXPECT_EQ(thirdBuffer, nullptr);
   EXPECT_EQ(thirdSize, 0);
-  EXPECT_NE(cupti.activityBuffers(), nullptr);
+  EXPECT_NE(mupti.activityBuffers(), nullptr);
 }
 
 // Common setup / teardown and helper functions
-class CuptiActivityProfilerTest : public ::testing::Test {
+class MuptiActivityProfilerTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    profiler_ = std::make_unique<CuptiActivityProfiler>(
-        cuptiActivities_, /*cpu only*/ false);
+    profiler_ = std::make_unique<MuptiActivityProfiler>(
+        muptiActivities_, /*cpu only*/ false);
     cfg_ = std::make_unique<Config>();
     cfg_->validate(std::chrono::system_clock::now());
     loggerFactory.addProtocol("file", [](const std::string& url) {
@@ -393,13 +393,13 @@ class CuptiActivityProfilerTest : public ::testing::Test {
   }
 
   std::unique_ptr<Config> cfg_;
-  MockCuptiActivities cuptiActivities_;
-  std::unique_ptr<CuptiActivityProfiler> profiler_;
+  MockMuptiActivities muptiActivities_;
+  std::unique_ptr<MuptiActivityProfiler> profiler_;
   ActivityLoggerFactory loggerFactory;
 };
 
-TEST_F(CuptiActivityProfilerTest, UnavailableCuptiFallsBackToCpuOnly) {
-  cuptiActivities_.available = false;
+TEST_F(MuptiActivityProfilerTest, UnavailableMuptiFallsBackToCpuOnly) {
+  muptiActivities_.available = false;
   const auto startTime = std::chrono::system_clock::now();
   constexpr auto duration = std::chrono::nanoseconds(300);
 
@@ -421,13 +421,13 @@ TEST_F(CuptiActivityProfilerTest, UnavailableCuptiFallsBackToCpuOnly) {
   EXPECT_EQ(trace.activities()->front()->name(), "cpu_op");
 }
 
-TEST_F(CuptiActivityProfilerTest, SyncTrace) {
+TEST_F(MuptiActivityProfilerTest, SyncTrace) {
   // Verbose logging is useful for debugging
-  std::vector<std::string> log_modules({"CuptiActivityProfiler.cpp"});
+  std::vector<std::string> log_modules({"MuptiActivityProfiler.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
   // Start and stop profiling
-  CuptiActivityProfiler profiler(cuptiActivities_, /*cpu only*/ false);
+  MuptiActivityProfiler profiler(muptiActivities_, /*cpu only*/ false);
   int64_t start_time_ns =
       libkineto::timeSinceEpoch(std::chrono::system_clock::now());
   int64_t duration_ns = 300;
@@ -450,13 +450,13 @@ TEST_F(CuptiActivityProfilerTest, SyncTrace) {
   profiler.transferCpuTrace(std::move(cpuOps));
 
   // And some GPU ops
-  auto gpuOps = std::make_unique<MockCuptiActivityBuffer>();
+  auto gpuOps = std::make_unique<MockMuptiActivityBuffer>();
   gpuOps->addRuntimeActivity(
-      CUDA_LAUNCH_KERNEL, start_time_ns + 33, start_time_ns + 38, 1);
+      MUSA_LAUNCH_KERNEL, start_time_ns + 33, start_time_ns + 38, 1);
   gpuOps->addRuntimeActivity(
-      CUDA_MEMCPY, start_time_ns + 110, start_time_ns + 120, 2);
+      MUSA_MEMCPY, start_time_ns + 110, start_time_ns + 120, 2);
   gpuOps->addRuntimeActivity(
-      CUDA_LAUNCH_KERNEL, start_time_ns + 130, start_time_ns + 145, 3);
+      MUSA_LAUNCH_KERNEL, start_time_ns + 130, start_time_ns + 145, 3);
   gpuOps->addDriverActivity(
       CU_LAUNCH_KERNEL, start_time_ns + 165, start_time_ns + 175, 4);
   gpuOps->addDriverActivity(
@@ -474,9 +474,9 @@ TEST_F(CuptiActivityProfilerTest, SyncTrace) {
   gpuOps->addDriverActivity(
       CU_MEM_IMPORT, start_time_ns + 287, start_time_ns + 293, 11);
   gpuOps->addRuntimeActivity(
-      CUDA_STREAM_SYNC, start_time_ns + 146, start_time_ns + 240, 12);
+      MUSA_STREAM_SYNC, start_time_ns + 146, start_time_ns + 240, 12);
   gpuOps->addRuntimeActivity(
-      CUDA_EVENT_SYNC, start_time_ns + 241, start_time_ns + 250, 13);
+      MUSA_EVENT_SYNC, start_time_ns + 241, start_time_ns + 250, 13);
   gpuOps->addKernelActivity(start_time_ns + 50, start_time_ns + 70, 1);
   gpuOps->addMemcpyActivity(start_time_ns + 140, start_time_ns + 150, 2);
   gpuOps->addKernelActivity(start_time_ns + 160, start_time_ns + 220, 3);
@@ -486,13 +486,13 @@ TEST_F(CuptiActivityProfilerTest, SyncTrace) {
       start_time_ns + 221,
       start_time_ns + 223,
       12,
-      CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_SYNCHRONIZE);
+      MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_SYNCHRONIZE);
   // Add wait event on kernel stream 1
   gpuOps->addSyncActivity(
       start_time_ns + 224,
       start_time_ns + 226,
       13,
-      CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
+      MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
       1 /*stream*/);
   // This event should be ignored because it is not on a stream that has no GPU
   // kernels
@@ -500,16 +500,16 @@ TEST_F(CuptiActivityProfilerTest, SyncTrace) {
       start_time_ns + 226,
       start_time_ns + 230,
       14,
-      CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
+      MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
       4 /*stream*/);
-  // Comes from CudaEventSynchronize call on CPU
+  // Comes from MusaEventSynchronize call on CPU
   gpuOps->addSyncActivity(
       start_time_ns + 227,
       start_time_ns + 226,
       13,
-      CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_EVENT_SYNCHRONIZE,
+      MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_EVENT_SYNCHRONIZE,
       -1 /*stream*/);
-  cuptiActivities_.activityBuffer = std::move(gpuOps);
+  muptiActivities_.activityBuffer = std::move(gpuOps);
 
   // Have the profiler process them
   auto logger = std::make_unique<MemoryTraceLogger>(*cfg_);
@@ -535,17 +535,17 @@ TEST_F(CuptiActivityProfilerTest, SyncTrace) {
   EXPECT_EQ(activityCounts["op2"], 1);
   EXPECT_EQ(activityCounts["op3"], 1);
   EXPECT_EQ(activityCounts["op4"], 1);
-  EXPECT_EQ(activityCounts["cudaLaunchKernel"], 2);
-  EXPECT_EQ(activityCounts["cuLaunchKernelEx"], 1);
+  EXPECT_EQ(activityCounts["musaLaunchKernel"], 2);
+  EXPECT_EQ(activityCounts["muLaunchKernelEx"], 1);
   EXPECT_EQ(activityCounts["cuMemCreate"], 1);
   EXPECT_EQ(activityCounts["cuMemMap"], 1);
   EXPECT_EQ(activityCounts["cuMemUnmap"], 1);
   EXPECT_EQ(activityCounts["cuMemRelease"], 1);
-  EXPECT_EQ(activityCounts["cuMemExportToShareableHandle"], 1);
-  EXPECT_EQ(activityCounts["cuMemImportFromShareableHandle"], 1);
-  EXPECT_EQ(activityCounts["cudaMemcpy"], 1);
-  EXPECT_EQ(activityCounts["cudaStreamSynchronize"], 1);
-  EXPECT_EQ(activityCounts["cudaEventSynchronize"], 1);
+  EXPECT_EQ(activityCounts["muMemExportToShareableHandle"], 1);
+  EXPECT_EQ(activityCounts["muMemImportFromShareableHandle"], 1);
+  EXPECT_EQ(activityCounts["musaMemcpy"], 1);
+  EXPECT_EQ(activityCounts["musaStreamSynchronize"], 1);
+  EXPECT_EQ(activityCounts["musaEventSynchronize"], 1);
   EXPECT_EQ(activityCounts["kernel"], 4);
   EXPECT_EQ(activityCounts["Stream Sync"], 1);
   EXPECT_EQ(activityCounts["Event Sync"], 1);
@@ -600,14 +600,14 @@ TEST_F(CuptiActivityProfilerTest, SyncTrace) {
 #endif
 }
 
-TEST_F(CuptiActivityProfilerTest, SyncEventCorrIdOutOfOrder) {
-  // Test that wait_on_cuda_event_record_corr_id is populated even when
-  // SYNCHRONIZATION records appear before both the CUDA_EVENT and the kernel
+TEST_F(MuptiActivityProfilerTest, SyncEventCorrIdOutOfOrder) {
+  // Test that wait_on_musa_event_record_corr_id is populated even when
+  // SYNCHRONIZATION records appear before both the MUSA_EVENT and the kernel
   // that provides the context->device mapping.
-  std::vector<std::string> log_modules({"CuptiActivityProfiler.cpp"});
+  std::vector<std::string> log_modules({"MuptiActivityProfiler.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
-  CuptiActivityProfiler profiler(cuptiActivities_, /*cpu only*/ false);
+  MuptiActivityProfiler profiler(muptiActivities_, /*cpu only*/ false);
   int64_t start_time_ns =
       libkineto::timeSinceEpoch(std::chrono::system_clock::now());
   int64_t duration_ns = 300;
@@ -637,16 +637,16 @@ TEST_F(CuptiActivityProfilerTest, SyncEventCorrIdOutOfOrder) {
   constexpr uint32_t kWaitStreamId = 13;
 
   // Wait events and synchronization records are added
-  // before the CUDA_EVENT and kernel they reference, as CUPTI
+  // before the MUSA_EVENT and kernel they reference, as MUPTI
   // provides no ordering guarantee for activity buffer entries.
-  auto gpuOps = std::make_unique<MockCuptiActivityBuffer>();
+  auto gpuOps = std::make_unique<MockMuptiActivityBuffer>();
   gpuOps->addRuntimeActivity(
-      CUDA_LAUNCH_KERNEL, start_time_ns + 10, start_time_ns + 20, 1);
+      MUSA_LAUNCH_KERNEL, start_time_ns + 10, start_time_ns + 20, 1);
   gpuOps->addSyncActivity(
       start_time_ns + 100,
       start_time_ns + 110,
       kWaitCorrId,
-      CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
+      MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
       kWaitStreamId,
       kEventId,
       kContextId);
@@ -654,11 +654,11 @@ TEST_F(CuptiActivityProfilerTest, SyncEventCorrIdOutOfOrder) {
       start_time_ns + 120,
       start_time_ns + 140,
       kEvtSyncCorrId,
-      CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_EVENT_SYNCHRONIZE,
+      MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_EVENT_SYNCHRONIZE,
       -1,
       kEventId,
       kContextId);
-  gpuOps->addCudaEventActivity(
+  gpuOps->addMusaEventActivity(
       kRecordCorrId, kEventId, kEventStreamId, kContextId);
   gpuOps->addKernelActivity(
       start_time_ns + 30,
@@ -667,7 +667,7 @@ TEST_F(CuptiActivityProfilerTest, SyncEventCorrIdOutOfOrder) {
       kDeviceId,
       kContextId,
       kWaitStreamId);
-  cuptiActivities_.activityBuffer = std::move(gpuOps);
+  muptiActivities_.activityBuffer = std::move(gpuOps);
 
   auto logger = std::make_unique<MemoryTraceLogger>(*cfg_);
   profiler.processTrace(*logger);
@@ -682,43 +682,43 @@ TEST_F(CuptiActivityProfilerTest, SyncEventCorrIdOutOfOrder) {
     std::string metadata = activity->metadataJson();
     if (metadata.find("Stream Wait Event") != std::string::npos) {
       auto json = nlohmann::json::parse("{" + metadata + "}");
-      EXPECT_EQ(json["wait_on_cuda_event_id"], kEventId)
+      EXPECT_EQ(json["wait_on_musa_event_id"], kEventId)
           << "Stream Wait Event should reference the correct event ID";
-      EXPECT_EQ(json["wait_on_cuda_event_record_corr_id"], kRecordCorrId)
+      EXPECT_EQ(json["wait_on_musa_event_record_corr_id"], kRecordCorrId)
           << "Stream Wait Event corr_id should be populated despite out-of-order records";
       EXPECT_EQ(json["wait_on_stream"], kEventStreamId)
           << "Stream Wait Event should reference stream the event was recorded on";
       RecordingTypedMetadataVisitor typedMetadata;
       activity->visitTypedMetadata(typedMetadata);
       EXPECT_EQ(
-          typedMetadata.get(CudaMetadataFields::kWaitOnCudaEventId),
+          typedMetadata.get(MusaMetadataFields::kWaitOnMusaEventId),
           static_cast<uint64_t>(kEventId));
       EXPECT_EQ(
-          typedMetadata.get(CudaMetadataFields::kWaitOnCudaEventRecordCorrId),
+          typedMetadata.get(MusaMetadataFields::kWaitOnMusaEventRecordCorrId),
           static_cast<int64_t>(kRecordCorrId));
       EXPECT_EQ(
-          typedMetadata.get(CudaMetadataFields::kWaitOnStream),
+          typedMetadata.get(MusaMetadataFields::kWaitOnStream),
           static_cast<int64_t>(kEventStreamId));
       streamWaitFound++;
     }
     if (metadata.find("Event Sync") != std::string::npos) {
       auto json = nlohmann::json::parse("{" + metadata + "}");
-      EXPECT_EQ(json["wait_on_cuda_event_id"], kEventId)
+      EXPECT_EQ(json["wait_on_musa_event_id"], kEventId)
           << "Event Sync should reference the correct event ID";
-      EXPECT_EQ(json["wait_on_cuda_event_record_corr_id"], kRecordCorrId)
+      EXPECT_EQ(json["wait_on_musa_event_record_corr_id"], kRecordCorrId)
           << "Event Sync corr_id should be populated despite out-of-order records";
       EXPECT_EQ(json["wait_on_stream"], kEventStreamId)
           << "Event Sync should reference stream the event was recorded on";
       RecordingTypedMetadataVisitor typedMetadata;
       activity->visitTypedMetadata(typedMetadata);
       EXPECT_EQ(
-          typedMetadata.get(CudaMetadataFields::kWaitOnCudaEventId),
+          typedMetadata.get(MusaMetadataFields::kWaitOnMusaEventId),
           static_cast<uint64_t>(kEventId));
       EXPECT_EQ(
-          typedMetadata.get(CudaMetadataFields::kWaitOnCudaEventRecordCorrId),
+          typedMetadata.get(MusaMetadataFields::kWaitOnMusaEventRecordCorrId),
           static_cast<int64_t>(kRecordCorrId));
       EXPECT_EQ(
-          typedMetadata.get(CudaMetadataFields::kWaitOnStream),
+          typedMetadata.get(MusaMetadataFields::kWaitOnStream),
           static_cast<int64_t>(kEventStreamId));
       eventSyncFound++;
     }
@@ -733,14 +733,14 @@ TEST_F(CuptiActivityProfilerTest, SyncEventCorrIdOutOfOrder) {
 #endif
 }
 
-TEST_F(CuptiActivityProfilerTest, GpuNCCLCollectiveTest) {
+TEST_F(MuptiActivityProfilerTest, GpuNCCLCollectiveTest) {
   // Set logging level for debugging purpose
   std::vector<std::string> log_modules(
-      {"CuptiActivityProfiler.cpp", "output_json.cpp"});
+      {"MuptiActivityProfiler.cpp", "output_json.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
   // Start and stop profiling
-  CuptiActivityProfiler profiler(cuptiActivities_, /*cpu only*/ false);
+  MuptiActivityProfiler profiler(muptiActivities_, /*cpu only*/ false);
   int64_t start_time_ns =
       libkineto::timeSinceEpoch(std::chrono::system_clock::now());
   int64_t duration_ns = 300;
@@ -826,14 +826,14 @@ TEST_F(CuptiActivityProfilerTest, GpuNCCLCollectiveTest) {
 
   // Set up GPU events with two collectives: one after its correlation
   // record (in-order) and one before (out-of-order), to verify metadata
-  // propagation works regardless of CUPTI buffer ordering.
-  auto gpuOps = std::make_unique<MockCuptiActivityBuffer>();
-  gpuOps->addCorrelationActivity(1, CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0, 1);
+  // propagation works regardless of MUPTI buffer ordering.
+  auto gpuOps = std::make_unique<MockMuptiActivityBuffer>();
+  gpuOps->addCorrelationActivity(1, MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0, 1);
   gpuOps->addCollectiveActivity(kernelLaunchTime + 5, kernelLaunchTime + 10, 1);
   gpuOps->addCollectiveActivity(
       kernelLaunchTime + 15, kernelLaunchTime + 20, 2);
-  gpuOps->addCorrelationActivity(2, CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0, 1);
-  cuptiActivities_.activityBuffer = std::move(gpuOps);
+  gpuOps->addCorrelationActivity(2, MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0, 1);
+  muptiActivities_.activityBuffer = std::move(gpuOps);
 
   // Process trace
   auto logger = std::make_unique<MemoryTraceLogger>(*cfg_);
@@ -907,13 +907,13 @@ TEST_F(CuptiActivityProfilerTest, GpuNCCLCollectiveTest) {
 #endif
 }
 
-TEST_F(CuptiActivityProfilerTest, GpuUserAnnotationTest) {
+TEST_F(MuptiActivityProfilerTest, GpuUserAnnotationTest) {
   // Verbose logging is useful for debugging
-  std::vector<std::string> log_modules({"CuptiActivityProfiler.cpp"});
+  std::vector<std::string> log_modules({"MuptiActivityProfiler.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
   // Start and stop profiling
-  CuptiActivityProfiler profiler(cuptiActivities_, /*cpu only*/ false);
+  MuptiActivityProfiler profiler(muptiActivities_, /*cpu only*/ false);
   int64_t start_time_ns =
       libkineto::timeSinceEpoch(std::chrono::system_clock::now());
   int64_t duration_ns = 300;
@@ -933,13 +933,13 @@ TEST_F(CuptiActivityProfilerTest, GpuUserAnnotationTest) {
   profiler.transferCpuTrace(std::move(cpuOps));
 
   // set up a couple of GPU events and correlate with above CPU event.
-  // CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1 is used for user annotations.
-  auto gpuOps = std::make_unique<MockCuptiActivityBuffer>();
-  gpuOps->addCorrelationActivity(1, CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, 1);
+  // MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1 is used for user annotations.
+  auto gpuOps = std::make_unique<MockMuptiActivityBuffer>();
+  gpuOps->addCorrelationActivity(1, MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, 1);
   gpuOps->addKernelActivity(kernelLaunchTime + 5, kernelLaunchTime + 10, 1);
-  gpuOps->addCorrelationActivity(1, CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, 1);
+  gpuOps->addCorrelationActivity(1, MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1, 1);
   gpuOps->addKernelActivity(kernelLaunchTime + 15, kernelLaunchTime + 25, 1);
-  cuptiActivities_.activityBuffer = std::move(gpuOps);
+  muptiActivities_.activityBuffer = std::move(gpuOps);
 
   // process trace
   auto logger = std::make_unique<MemoryTraceLogger>(*cfg_);
@@ -974,9 +974,9 @@ TEST_F(CuptiActivityProfilerTest, GpuUserAnnotationTest) {
   EXPECT_EQ(gpu_annotation->name(), annotation->name());
 }
 
-TEST_F(CuptiActivityProfilerTest, SubActivityProfilers) {
+TEST_F(MuptiActivityProfilerTest, SubActivityProfilers) {
   // Verbose logging is useful for debugging
-  std::vector<std::string> log_modules({"CuptiActivityProfiler.cpp"});
+  std::vector<std::string> log_modules({"MuptiActivityProfiler.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
   // Setup example events to test
@@ -1003,8 +1003,8 @@ TEST_F(CuptiActivityProfilerTest, SubActivityProfilers) {
   auto mock_activity_profiler =
       std::make_unique<MockActivityProfiler>(test_activities);
 
-  MockCuptiActivities activities;
-  CuptiActivityProfiler profiler(activities, /*cpu only*/ true);
+  MockMuptiActivities activities;
+  MuptiActivityProfiler profiler(activities, /*cpu only*/ true);
   profiler.addChildActivityProfiler(std::move(mock_activity_profiler));
 
   profiler.configure(*cfg_, start_time);
@@ -1032,14 +1032,14 @@ TEST_F(CuptiActivityProfilerTest, SubActivityProfilers) {
   checkTracefile(tmpTrace.c_str());
 }
 
-TEST_F(CuptiActivityProfilerTest, JsonGPUIDSortTest) {
+TEST_F(MuptiActivityProfilerTest, JsonGPUIDSortTest) {
   // Set logging level for debugging purpose
   std::vector<std::string> log_modules(
-      {"CuptiActivityProfiler.cpp", "output_json.cpp"});
+      {"MuptiActivityProfiler.cpp", "output_json.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
   // Start and stop profiling
-  CuptiActivityProfiler profiler(cuptiActivities_, /*cpu only*/ false);
+  MuptiActivityProfiler profiler(muptiActivities_, /*cpu only*/ false);
   int64_t start_time_ns =
       libkineto::timeSinceEpoch(std::chrono::system_clock::now());
   int64_t duration_ns = 500;
@@ -1055,11 +1055,11 @@ TEST_F(CuptiActivityProfilerTest, JsonGPUIDSortTest) {
       start_time_ns, start_time_ns + duration_ns);
   cpuOps->addOp("op1", start_time_ns + 10, start_time_ns + 30, 1);
   profiler.transferCpuTrace(std::move(cpuOps));
-  auto gpuOps = std::make_unique<MockCuptiActivityBuffer>();
+  auto gpuOps = std::make_unique<MockMuptiActivityBuffer>();
   gpuOps->addRuntimeActivity(
-      CUDA_LAUNCH_KERNEL, start_time_ns + 23, start_time_ns + 28, 1);
+      MUSA_LAUNCH_KERNEL, start_time_ns + 23, start_time_ns + 28, 1);
   gpuOps->addKernelActivity(start_time_ns + 50, start_time_ns + 70, 1);
-  cuptiActivities_.activityBuffer = std::move(gpuOps);
+  muptiActivities_.activityBuffer = std::move(gpuOps);
 
   // Process trace
   auto logger = std::make_unique<MemoryTraceLogger>(*cfg_);
@@ -1104,7 +1104,7 @@ TEST_F(CuptiActivityProfilerTest, JsonGPUIDSortTest) {
     }
   }
 
-  // Expect there is 1 CUPTI Overhead, and 16 CPU + GPU sorts, total 17.
+  // Expect there is 1 MUPTI Overhead, and 16 CPU + GPU sorts, total 17.
   EXPECT_EQ(17, sortLabel.size());
   for (int i = 0; i < 16; i++) {
     // Check there are 16 GPU sorts (0-15) with expected sort_index.
@@ -1116,14 +1116,14 @@ TEST_F(CuptiActivityProfilerTest, JsonGPUIDSortTest) {
 #endif
 }
 
-TEST_F(CuptiActivityProfilerTest, StreamWaitEventFutureCorrelation) {
-  // When a CUDA event is re-recorded (same eventId, new correlationId), CUPTI
+TEST_F(MuptiActivityProfilerTest, StreamWaitEventFutureCorrelation) {
+  // When a MUSA event is re-recorded (same eventId, new correlationId), MUPTI
   // may deliver the later record before the wait. Verify the wait links to the
   // most recent record that precedes it, not the future re-record.
-  std::vector<std::string> log_modules({"CuptiActivityProfiler.cpp"});
+  std::vector<std::string> log_modules({"MuptiActivityProfiler.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
-  CuptiActivityProfiler profiler(cuptiActivities_, /*cpu only*/ false);
+  MuptiActivityProfiler profiler(muptiActivities_, /*cpu only*/ false);
   int64_t start_time_ns =
       libkineto::timeSinceEpoch(std::chrono::system_clock::now());
   int64_t duration_ns = 500;
@@ -1142,20 +1142,20 @@ TEST_F(CuptiActivityProfilerTest, StreamWaitEventFutureCorrelation) {
   // Chronological order: record(corrId=100), wait(corrId=101),
   // re-record(corrId=200). Delivery order: record(100), re-record(200),
   // wait(101).
-  auto gpuOps = std::make_unique<MockCuptiActivityBuffer>();
+  auto gpuOps = std::make_unique<MockMuptiActivityBuffer>();
   gpuOps->addRuntimeActivity(
-      CUDA_LAUNCH_KERNEL, start_time_ns + 13, start_time_ns + 18, 1);
+      MUSA_LAUNCH_KERNEL, start_time_ns + 13, start_time_ns + 18, 1);
   gpuOps->addKernelActivity(start_time_ns + 50, start_time_ns + 70, 1);
-  gpuOps->addCudaEventActivity(100, 42, 1, 0);
-  gpuOps->addCudaEventActivity(200, 42, 1, 0);
+  gpuOps->addMusaEventActivity(100, 42, 1, 0);
+  gpuOps->addMusaEventActivity(200, 42, 1, 0);
   gpuOps->addSyncActivity(
       start_time_ns + 200,
       start_time_ns + 202,
       101,
-      CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
+      MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
       1,
       42);
-  cuptiActivities_.activityBuffer = std::move(gpuOps);
+  muptiActivities_.activityBuffer = std::move(gpuOps);
 
   auto logger = std::make_unique<MemoryTraceLogger>(*cfg_);
   profiler.processTrace(*logger);
@@ -1169,20 +1169,20 @@ TEST_F(CuptiActivityProfilerTest, StreamWaitEventFutureCorrelation) {
       foundWaitEvent = true;
       auto metadata = activity->metadataJson();
       auto json = nlohmann::json::parse("{" + metadata + "}");
-      EXPECT_EQ(json["wait_on_cuda_event_record_corr_id"], 100)
+      EXPECT_EQ(json["wait_on_musa_event_record_corr_id"], 100)
           << "Should reference corrId 100 (the record before the wait), got: "
           << metadata;
-      EXPECT_EQ(json["wait_on_cuda_event_id"], 42)
+      EXPECT_EQ(json["wait_on_musa_event_id"], 42)
           << "Should reference eventId 42, got: " << metadata;
     }
   }
   EXPECT_TRUE(foundWaitEvent) << "Stream Wait Event activity not found";
 }
 
-TEST_F(CuptiActivityProfilerTest, WaitEventMapClearedOnReset) {
+TEST_F(MuptiActivityProfilerTest, WaitEventMapClearedOnReset) {
   // Verify waitEventMap is cleared between profiling sessions so that a wait
   // event in session 2 does not pick up a stale record from session 1.
-  std::vector<std::string> log_modules({"CuptiActivityProfiler.cpp"});
+  std::vector<std::string> log_modules({"MuptiActivityProfiler.cpp"});
   SET_LOG_VERBOSITY_LEVEL(2, log_modules);
 
   int64_t start_time_ns =
@@ -1192,7 +1192,7 @@ TEST_F(CuptiActivityProfilerTest, WaitEventMapClearedOnReset) {
 
   // Session 1: record eventId=42 with corrId=100, then reset.
   {
-    CuptiActivityProfiler profiler(cuptiActivities_, /*cpu only*/ false);
+    MuptiActivityProfiler profiler(muptiActivities_, /*cpu only*/ false);
     profiler.configure(*cfg_, start_time);
     profiler.startTrace(start_time);
     profiler.stopTrace(timePointFromNs(start_time_ns + duration_ns));
@@ -1204,21 +1204,21 @@ TEST_F(CuptiActivityProfilerTest, WaitEventMapClearedOnReset) {
     cpuOps->addOp("op1", start_time_ns + 10, start_time_ns + 30, 1);
     profiler.transferCpuTrace(std::move(cpuOps));
 
-    auto gpuOps = std::make_unique<MockCuptiActivityBuffer>();
+    auto gpuOps = std::make_unique<MockMuptiActivityBuffer>();
     gpuOps->addRuntimeActivity(
-        CUDA_LAUNCH_KERNEL, start_time_ns + 13, start_time_ns + 18, 1);
+        MUSA_LAUNCH_KERNEL, start_time_ns + 13, start_time_ns + 18, 1);
     gpuOps->addKernelActivity(start_time_ns + 50, start_time_ns + 70, 1);
-    gpuOps->addCudaEventActivity(100, 42, 1, 0);
-    cuptiActivities_.activityBuffer = std::move(gpuOps);
+    gpuOps->addMusaEventActivity(100, 42, 1, 0);
+    muptiActivities_.activityBuffer = std::move(gpuOps);
 
     auto logger = std::make_unique<MemoryTraceLogger>(*cfg_);
     profiler.processTrace(*logger);
     profiler.reset();
   }
 
-  // Session 2: no cudaEventRecord for eventId=42, but a wait references it.
+  // Session 2: no musaEventRecord for eventId=42, but a wait references it.
   {
-    CuptiActivityProfiler profiler2(cuptiActivities_, /*cpu only*/ false);
+    MuptiActivityProfiler profiler2(muptiActivities_, /*cpu only*/ false);
     int64_t start_time_ns2 = start_time_ns + 10000;
     auto start_time2 = timePointFromNs(start_time_ns2);
 
@@ -1236,18 +1236,18 @@ TEST_F(CuptiActivityProfilerTest, WaitEventMapClearedOnReset) {
     cpuOps2->addOp("op1", start_time_ns2 + 10, start_time_ns2 + 30, 1);
     profiler2.transferCpuTrace(std::move(cpuOps2));
 
-    auto gpuOps2 = std::make_unique<MockCuptiActivityBuffer>();
+    auto gpuOps2 = std::make_unique<MockMuptiActivityBuffer>();
     gpuOps2->addRuntimeActivity(
-        CUDA_LAUNCH_KERNEL, start_time_ns2 + 13, start_time_ns2 + 18, 1);
+        MUSA_LAUNCH_KERNEL, start_time_ns2 + 13, start_time_ns2 + 18, 1);
     gpuOps2->addKernelActivity(start_time_ns2 + 50, start_time_ns2 + 70, 1);
     gpuOps2->addSyncActivity(
         start_time_ns2 + 200,
         start_time_ns2 + 202,
         501,
-        CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
+        MUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT,
         1,
         42);
-    cuptiActivities_.activityBuffer = std::move(gpuOps2);
+    muptiActivities_.activityBuffer = std::move(gpuOps2);
 
     auto logger2 = std::make_unique<MemoryTraceLogger>(*cfg2);
     profiler2.processTrace(*logger2);
@@ -1259,7 +1259,7 @@ TEST_F(CuptiActivityProfilerTest, WaitEventMapClearedOnReset) {
       if (activity->name() == "Stream Wait Event") {
         auto metadata = activity->metadataJson();
         auto json = nlohmann::json::parse("{" + metadata + "}");
-        EXPECT_EQ(json["wait_on_cuda_event_record_corr_id"], -1)
+        EXPECT_EQ(json["wait_on_musa_event_record_corr_id"], -1)
             << "Expected default corrId -1 (no record in session 2), got: "
             << metadata;
       }

@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "CuptiPMSamplingController.h"
+#include "MuptiPMSamplingController.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,11 +16,11 @@
 #include "Logger.h"
 
 /*
- * ======================== CUPTI PM SAMPLING CONTROLLER
+ * ======================== MUPTI PM SAMPLING CONTROLLER
  * ========================
  *
  * Controller for PM Sampling, which manages Kineto-side lifecycle. Hooks onto
- * the CuptiPMSamplingApi. A sampling session follows prepare() -> start() ->
+ * the MuptiPMSamplingApi. A sampling session follows prepare() -> start() ->
  * stop().
  *
  * TODO LIST (in no particular order):
@@ -40,17 +40,17 @@ constexpr std::chrono::milliseconds kDecodePollInterval{10};
 
 } // namespace
 
-CuptiPMSamplingController::CuptiPMSamplingController(
-    CuptiPMSamplingConfig config)
+MuptiPMSamplingController::MuptiPMSamplingController(
+    MuptiPMSamplingConfig config)
     : config_(std::move(config)) {}
 
-CuptiPMSamplingController::~CuptiPMSamplingController() {
+MuptiPMSamplingController::~MuptiPMSamplingController() {
   static_cast<void>(stop());
 }
 
-bool CuptiPMSamplingController::prepare() {
+bool MuptiPMSamplingController::prepare() {
   if (prepared_) {
-    LOG(WARNING) << "CUPTI PM sampling is busy";
+    LOG(WARNING) << "MUPTI PM sampling is busy";
     return false;
   }
   decodeFailed_.store(false, std::memory_order_relaxed);
@@ -68,7 +68,7 @@ bool CuptiPMSamplingController::prepare() {
     }
     api_.configure(config_);
   } catch (...) {
-    logCurrentException("Failed to prepare CUPTI PM sampling");
+    logCurrentException("Failed to prepare MUPTI PM sampling");
     api_.disable();
     return false;
   }
@@ -76,13 +76,13 @@ bool CuptiPMSamplingController::prepare() {
   return true;
 }
 
-void CuptiPMSamplingController::start() {
+void MuptiPMSamplingController::start() {
   if (!prepared_) {
-    LOG(WARNING) << "CUPTI PM sampling is not prepared";
+    LOG(WARNING) << "MUPTI PM sampling is not prepared";
     return;
   }
   if (active_) {
-    LOG(WARNING) << "CUPTI PM sampling is already running";
+    LOG(WARNING) << "MUPTI PM sampling is already running";
     return;
   }
 
@@ -92,14 +92,14 @@ void CuptiPMSamplingController::start() {
     active_ = true;
     // Decode needs to happen on an async thread as it needs to synchronously
     // fetch new samples from the api
-    decodeThread_ = std::thread(&CuptiPMSamplingController::decodeLoop, this);
+    decodeThread_ = std::thread(&MuptiPMSamplingController::decodeLoop, this);
   } catch (...) {
-    logCurrentException("Failed to start CUPTI PM sampling");
+    logCurrentException("Failed to start MUPTI PM sampling");
     static_cast<void>(stop());
   }
 }
 
-bool CuptiPMSamplingController::stop() {
+bool MuptiPMSamplingController::stop() {
   // Notify the decode thread and join it if possible
   if (decodeThread_.joinable()) {
     {
@@ -119,14 +119,14 @@ bool CuptiPMSamplingController::stop() {
   // active_ indicates that the PM Sampling API was primed and collected samples
   // so we need to stop() and drain all remaining items in the hardware buffer.
   if (active_) {
-    std::vector<CuptiPMSample> decodedSamples;
+    std::vector<MuptiPMSample> decodedSamples;
     try {
       api_.stop();
       if (!decodeFailed_.load(std::memory_order_relaxed)) {
         drain(decodedSamples);
       }
     } catch (...) {
-      logCurrentException("Failed to stop or drain CUPTI PM sampling");
+      logCurrentException("Failed to stop or drain MUPTI PM sampling");
     }
     active_ = false;
   }
@@ -135,21 +135,21 @@ bool CuptiPMSamplingController::stop() {
   return wasActive;
 }
 
-int32_t CuptiPMSamplingController::deviceId() const {
+int32_t MuptiPMSamplingController::deviceId() const {
   return config_.deviceId;
 }
 
-const std::vector<std::string>& CuptiPMSamplingController::metricNames() const {
+const std::vector<std::string>& MuptiPMSamplingController::metricNames() const {
   return config_.metricNames;
 }
 
-std::vector<CuptiPMSample> CuptiPMSamplingController::takeSamples() {
+std::vector<MuptiPMSample> MuptiPMSamplingController::takeSamples() {
   std::lock_guard<std::mutex> lock(samplesMutex_);
   return std::exchange(samples_, {});
 }
 
-void CuptiPMSamplingController::decodeLoop() {
-  std::vector<CuptiPMSample> decodedSamples;
+void MuptiPMSamplingController::decodeLoop() {
+  std::vector<MuptiPMSample> decodedSamples;
   try {
     // stopRequested_ flag signals that the main thread is stopping, we
     // use the waitCondition_ to wake the decode thread to return immediately.
@@ -165,20 +165,20 @@ void CuptiPMSamplingController::decodeLoop() {
     // If decodeFailed_ is true, we will skip drain() on the disable path as
     // this is the operation that failed.
     decodeFailed_.store(true, std::memory_order_relaxed);
-    logCurrentException("CUPTI PM sampling worker failed");
+    logCurrentException("MUPTI PM sampling worker failed");
   }
 }
 
-bool CuptiPMSamplingController::decodeBatch(
-    std::vector<CuptiPMSample>& decodedSamples) {
+bool MuptiPMSamplingController::decodeBatch(
+    std::vector<MuptiPMSample>& decodedSamples) {
   decodedSamples.clear();
   const bool isBufferDrained = api_.decode(decodedSamples);
   std::lock_guard<std::mutex> lock(samplesMutex_);
   for (auto& sample : decodedSamples) {
-    // CUPTI recommends discarding the first sample because it may contain
+    // MUPTI recommends discarding the first sample because it may contain
     // outlier values.
     if (discardFirstSample_) {
-      LOG(INFO) << "Discarding first CUPTI PM sample because it may contain "
+      LOG(INFO) << "Discarding first MUPTI PM sample because it may contain "
                    "outlier values";
       discardFirstSample_ = false;
       continue;
@@ -190,10 +190,10 @@ bool CuptiPMSamplingController::decodeBatch(
   return isBufferDrained;
 }
 
-void CuptiPMSamplingController::drain(
-    std::vector<CuptiPMSample>& decodedSamples) {
-  // This relies on CUPTI eventually reporting that the hardware buffer is
-  // drained. If CUPTI enters a bad state, this loop can block indefinitely,
+void MuptiPMSamplingController::drain(
+    std::vector<MuptiPMSample>& decodedSamples) {
+  // This relies on MUPTI eventually reporting that the hardware buffer is
+  // drained. If MUPTI enters a bad state, this loop can block indefinitely,
   // including when called during destruction.
   bool isBufferDrained;
   do {
@@ -201,9 +201,9 @@ void CuptiPMSamplingController::drain(
   } while (!isBufferDrained);
 }
 
-bool CuptiPMSamplingController::validateConfig() const {
+bool MuptiPMSamplingController::validateConfig() const {
   if (config_.deviceId < 0) {
-    LOG(WARNING) << "CUPTI PM sampling device ID must be nonnegative";
+    LOG(WARNING) << "MUPTI PM sampling device ID must be nonnegative";
     return false;
   }
   if (config_.metricNames.empty() ||
@@ -211,39 +211,39 @@ bool CuptiPMSamplingController::validateConfig() const {
           config_.metricNames.begin(),
           config_.metricNames.end(),
           [](const std::string& name) { return name.empty(); })) {
-    LOG(WARNING) << "CUPTI PM sampling metrics must not be empty";
+    LOG(WARNING) << "MUPTI PM sampling metrics must not be empty";
     return false;
   }
   if (config_.samplingInterval.count() <= 0) {
-    LOG(WARNING) << "CUPTI PM sampling interval must be positive";
+    LOG(WARNING) << "MUPTI PM sampling interval must be positive";
     return false;
   }
   return true;
 }
 
-bool CuptiPMSamplingController::validateSample(
-    const CuptiPMSample& sample) const {
+bool MuptiPMSamplingController::validateSample(
+    const MuptiPMSample& sample) const {
   if (sample.values.size() != config_.metricNames.size()) {
     LOG_FIRST_N(WARNING, 3)
-        << "CUPTI PM sample has the wrong number of metric values";
+        << "MUPTI PM sample has the wrong number of metric values";
     return false;
   }
   if (sample.rawEndTimestamp < sample.rawStartTimestamp) {
     LOG_FIRST_N(WARNING, 3)
-        << "CUPTI PM sample has an invalid timestamp interval";
+        << "MUPTI PM sample has an invalid timestamp interval";
     return false;
   }
   if (std::any_of(sample.values.begin(), sample.values.end(), [](double value) {
         return !std::isfinite(value);
       })) {
     LOG_FIRST_N(WARNING, 3)
-        << "CUPTI PM sample contains a non-finite metric value";
+        << "MUPTI PM sample contains a non-finite metric value";
     return false;
   }
   return true;
 }
 
-void CuptiPMSamplingController::logCurrentException(const char* fallback) {
+void MuptiPMSamplingController::logCurrentException(const char* fallback) {
   const auto exception = std::current_exception();
   if (exception == nullptr) {
     LOG(WARNING) << fallback;

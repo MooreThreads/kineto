@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <cuda.h>
-#include <cuda_runtime_api.h>
+#include <musa.h>
+#include <musa_runtime_api.h>
 
 #include <stdexcept>
 #include <string>
@@ -18,34 +18,34 @@
 
 namespace kineto_stress_test {
 
-inline void checkCudaStatus(cudaError_t status, int lineNumber = -1) {
-  if (status != cudaSuccess) {
+inline void checkMusaStatus(musaError_t status, int lineNumber = -1) {
+  if (status != musaSuccess) {
     printf(
-        "PID %d --> CUDA API failed with status %d: %s at line %d\n",
+        "PID %d --> MUSA API failed with status %d: %s at line %d\n",
         getpid(),
         status,
-        cudaGetErrorString(status),
+        musaGetErrorString(status),
         lineNumber);
     exit(EXIT_FAILURE);
   }
 }
 
-#define CUDA_CHECK(EXPR)                            \
+#define MUSA_CHECK(EXPR)                            \
   do {                                              \
-    const cudaError_t err = EXPR;                   \
-    if (err == cudaSuccess) {                       \
+    const musaError_t err = EXPR;                   \
+    if (err == musaSuccess) {                       \
       break;                                        \
     }                                               \
     std::string error_message;                      \
     error_message.append(__FILE__);                 \
     error_message.append(":");                      \
     error_message.append(std::to_string(__LINE__)); \
-    error_message.append(" CUDA error: ");          \
-    error_message.append(cudaGetErrorString(err));  \
+    error_message.append(" MUSA error: ");          \
+    error_message.append(musaGetErrorString(err));  \
     throw std::runtime_error(error_message);        \
   } while (0)
 
-#define CUDA_KERNEL_LAUNCH_CHECK() CUDA_CHECK(cudaGetLastError())
+#define MUSA_KERNEL_LAUNCH_CHECK() MUSA_CHECK(musaGetLastError())
 
 #define MPICHECK(cmd)                                  \
   do {                                                 \

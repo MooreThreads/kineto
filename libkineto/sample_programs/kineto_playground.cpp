@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <cuda_runtime.h>
+#include <musa_runtime.h>
 #include <iostream>
 #include <string>
 
@@ -15,16 +15,16 @@
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
 #include "kineto_playground.cuh"
 
-#define CHECK_CUDA(call)               \
+#define CHECK_MUSA(call)               \
   do {                                 \
-    cudaError_t status = call;         \
-    if (status != cudaSuccess) {       \
+    musaError_t status = call;         \
+    if (status != musaSuccess) {       \
       fprintf(                         \
           stderr,                      \
-          "CUDA Error at %s:%d: %s\n", \
+          "MUSA Error at %s:%d: %s\n", \
           __FILE__,                    \
           __LINE__,                    \
-          cudaGetErrorString(status)); \
+          musaGetErrorString(status)); \
       exit(1);                         \
     }                                  \
   } while (0)
@@ -47,14 +47,14 @@ int main() {
   libkineto::api().initProfilerIfRegistered();
   profiler.prepareTrace(types);
 
-  // Good to warm up after prepareTrace to get cupti initialization to settle
+  // Good to warm up after prepareTrace to get mupti initialization to settle
   std::cout << "Warm up " << std::endl;
   warmup();
   std::cout << "Start trace" << std::endl;
   profiler.startTrace();
   std::cout << "Start playground" << std::endl;
   playground();
-  CHECK_CUDA(cudaDeviceSynchronize());
+  CHECK_MUSA(musaDeviceSynchronize());
 
   std::cout << "Stop Trace" << std::endl;
   auto trace = profiler.stopTrace();

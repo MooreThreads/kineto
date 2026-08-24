@@ -11,14 +11,14 @@
 #include <list>
 #include <memory>
 
-#include "CuptiActivityBuffer.h"
+#include "MuptiActivityBuffer.h"
 #include "libkineto.h"
 
 namespace KINETO_NAMESPACE {
 
 struct ActivityBuffers {
   std::list<std::unique_ptr<libkineto::CpuTraceBuffer>> cpu;
-  std::unique_ptr<CuptiActivityBufferMap> gpu;
+  std::unique_ptr<MuptiActivityBufferMap> gpu;
 
   // Add a wrapper object to the underlying struct stored in the buffer
   template <class T>

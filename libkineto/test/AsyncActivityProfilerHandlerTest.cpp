@@ -40,7 +40,7 @@ using namespace libkineto::test;
 // startTime + ACTIVITIES_DURATION_SECS.
 
 // Subclass that lets us control isGpuCollectionStopped() for testing
-// the buffer-overflow-during-warmup path without needing real CUPTI.
+// the buffer-overflow-during-warmup path without needing real MUPTI.
 class MockGpuProfiler : public GenericActivityProfiler {
  public:
   MockGpuProfiler() : GenericActivityProfiler(/*cpuOnly=*/false) {}
@@ -137,7 +137,7 @@ class AsyncClientTest : public ::testing::Test {
 
 TEST(AsyncActivityProfilerHandler, AsyncTrace) {
   std::vector<std::string> log_modules(
-      {"CuptiActivityProfiler.cpp", "output_json.cpp"});
+      {"MuptiActivityProfiler.cpp", "output_json.cpp"});
   SET_LOG_VERBOSITY_LEVEL(1, log_modules);
 
   GenericActivityProfiler profiler(/*cpu only*/ true);
@@ -211,7 +211,7 @@ TEST(AsyncActivityProfilerHandler, AsyncTrace) {
 
 TEST(AsyncActivityProfilerHandler, AsyncTraceUsingIter) {
   std::vector<std::string> log_modules(
-      {"CuptiActivityProfiler.cpp", "output_json.cpp"});
+      {"MuptiActivityProfiler.cpp", "output_json.cpp"});
   SET_LOG_VERBOSITY_LEVEL(1, log_modules);
 
   auto runIterTest = [&](int start_iter, int warmup_iters, int trace_iters) {
@@ -294,7 +294,7 @@ TEST(AsyncActivityProfilerHandler, AsyncTraceUsingIter) {
 #ifndef _WIN32
 TEST(AsyncActivityProfilerHandler, MetadataJsonFormatingTest) {
   std::vector<std::string> log_modules(
-      {"CuptiActivityProfiler.cpp", "output_json.cpp"});
+      {"MuptiActivityProfiler.cpp", "output_json.cpp"});
   SET_LOG_VERBOSITY_LEVEL(1, log_modules);
 
   setenv("PT_PROFILER_JOB_NAME", "test_training_job", 1);

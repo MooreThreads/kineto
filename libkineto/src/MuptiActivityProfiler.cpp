@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "CuptiActivityProfiler.h"
-#include <cupti.h>
+#include "MuptiActivityProfiler.h"
+#include <mupti.h>
 #include <fmt/format.h>
 #include <algorithm>
 #include <optional>
@@ -17,10 +17,10 @@
 
 #include "ActivityBuffers.h"
 #include "Config.h"
-#include "CuptiActivity.h"
-#include "CuptiActivityApi.h"
-#include "CuptiCbidRegistry.h"
-#include "CuptiTimestamp.h"
+#include "MuptiActivity.h"
+#include "MuptiActivityApi.h"
+#include "MuptiCbidRegistry.h"
+#include "MuptiTimestamp.h"
 #include "Demangle.h"
 #include "DeviceUtil.h"
 #include "KernelRegistry.h"
@@ -47,9 +47,9 @@ struct CtxEventPairHash {
 };
 
 struct WaitEventInfo {
-  // CUDA stream that the CUDA event was recorded on
+  // MUSA stream that the MUSA event was recorded on
   uint32_t stream;
-  // Correlation ID of the cudaEventRecord event
+  // Correlation ID of the musaEventRecord event
   uint32_t correlationId;
 };
 
@@ -72,125 +72,125 @@ std::unordered_map<uint32_t, uint32_t>& ctxToDeviceId() {
 
 namespace KINETO_NAMESPACE {
 
-CuptiActivityProfiler::CuptiActivityProfiler(
-    CuptiActivityApi& cupti,
+MuptiActivityProfiler::MuptiActivityProfiler(
+    MuptiActivityApi& mupti,
     bool cpuOnly)
-    : GenericActivityProfiler(cpuOnly), cupti_(cupti) {}
+    : GenericActivityProfiler(cpuOnly), mupti_(mupti) {}
 
-void CuptiActivityProfiler::recordGpuVersions(uint32_t cuptiVersion) {
-  int cudaRuntimeVersion = 0;
-  int cudaDriverVersion = 0;
-  CUDA_CALL(cudaRuntimeGetVersion(&cudaRuntimeVersion));
-  CUDA_CALL(cudaDriverGetVersion(&cudaDriverVersion));
-  LOG(INFO) << "CUDA versions. CUPTI: " << cuptiVersion
-            << "; Runtime: " << cudaRuntimeVersion
-            << "; Driver: " << cudaDriverVersion;
+void MuptiActivityProfiler::recordGpuVersions(uint32_t muptiVersion) {
+  int musaRuntimeVersion = 0;
+  int musaDriverVersion = 0;
+  MUSA_CALL(musaRuntimeGetVersion(&musaRuntimeVersion));
+  MUSA_CALL(musaDriverGetVersion(&musaDriverVersion));
+  LOG(INFO) << "MUSA versions. MUPTI: " << muptiVersion
+            << "; Runtime: " << musaRuntimeVersion
+            << "; Driver: " << musaDriverVersion;
 
   LOGGER_OBSERVER_ADD_PERSISTENT_METADATA(
-      "cupti_version", std::to_string(cuptiVersion));
+      "mupti_version", std::to_string(muptiVersion));
   LOGGER_OBSERVER_ADD_PERSISTENT_METADATA(
-      "cuda_runtime_version", std::to_string(cudaRuntimeVersion));
+      "musa_runtime_version", std::to_string(musaRuntimeVersion));
   LOGGER_OBSERVER_ADD_PERSISTENT_METADATA(
-      "cuda_driver_version", std::to_string(cudaDriverVersion));
-  addVersionMetadata("cupti_version", std::to_string(cuptiVersion));
+      "musa_driver_version", std::to_string(musaDriverVersion));
+  addVersionMetadata("mupti_version", std::to_string(muptiVersion));
   addVersionMetadata(
-      "cuda_runtime_version", std::to_string(cudaRuntimeVersion));
-  addVersionMetadata("cuda_driver_version", std::to_string(cudaDriverVersion));
+      "musa_runtime_version", std::to_string(musaRuntimeVersion));
+  addVersionMetadata("musa_driver_version", std::to_string(musaDriverVersion));
 }
 
-void CuptiActivityProfiler::setMaxGpuBufferSize(int64_t size) {
-  cupti_.setMaxBufferSize(size);
+void MuptiActivityProfiler::setMaxGpuBufferSize(int64_t size) {
+  mupti_.setMaxBufferSize(size);
 }
 
-void CuptiActivityProfiler::enableGpuTracing() {
+void MuptiActivityProfiler::enableGpuTracing() {
   // @lint-ignore CLANGTIDY facebook-hte-std::call_once
-  std::call_once(cuptiInitializationOnce_, [this] {
-    uint32_t cuptiVersion = 0;
-    cuptiAvailable_ = cupti_.isAvailable(cuptiVersion);
-    if (cuptiAvailable_) {
-      recordGpuVersions(cuptiVersion);
+  std::call_once(muptiInitializationOnce_, [this] {
+    uint32_t muptiVersion = 0;
+    muptiAvailable_ = mupti_.isAvailable(muptiVersion);
+    if (muptiAvailable_) {
+      recordGpuVersions(muptiVersion);
     } else {
       cpuOnly_ = true;
-      VLOG(0) << "CUPTI unavailable; continuing with CPU-only profiling";
+      VLOG(0) << "MUPTI unavailable; continuing with CPU-only profiling";
     }
   });
-  if (!cuptiAvailable_) {
+  if (!muptiAvailable_) {
     toggleState_.store(false);
     return;
   }
 
-  configureCuptiTimestampSource(config().getTSCTimestampFlag());
-  cupti_.enableCuptiActivities(
+  configureMuptiTimestampSource(config().getTSCTimestampFlag());
+  mupti_.enableMuptiActivities(
       derivedConfig_->profileActivityTypes(),
       derivedConfig_->isPerThreadBufferEnabled());
 }
 
-void CuptiActivityProfiler::disableGpuTracing() {
-  if (!cuptiAvailable_) {
+void MuptiActivityProfiler::disableGpuTracing() {
+  if (!muptiAvailable_) {
     return;
   }
-  cupti_.disableCuptiActivities(derivedConfig_->profileActivityTypes());
+  mupti_.disableMuptiActivities(derivedConfig_->profileActivityTypes());
 }
 
-void CuptiActivityProfiler::clearGpuActivities() {
-  if (!cuptiAvailable_) {
+void MuptiActivityProfiler::clearGpuActivities() {
+  if (!muptiAvailable_) {
     return;
   }
-  cupti_.clearActivities();
+  mupti_.clearActivities();
 }
 
-bool CuptiActivityProfiler::isGpuCollectionStopped() const {
-  return cupti_.stopCollection;
+bool MuptiActivityProfiler::isGpuCollectionStopped() const {
+  return mupti_.stopCollection;
 }
 
-void CuptiActivityProfiler::synchronizeGpuDevice() {
-  if (!cuptiAvailable_) {
+void MuptiActivityProfiler::synchronizeGpuDevice() {
+  if (!muptiAvailable_) {
     return;
   }
-  CUDA_CALL(cudaDeviceSynchronize());
-  cupti_.flushActivities();
+  MUSA_CALL(musaDeviceSynchronize());
+  mupti_.flushActivities();
 }
 
-void CuptiActivityProfiler::pushCorrelationIdImpl(
+void MuptiActivityProfiler::pushCorrelationIdImpl(
     uint64_t id,
     CorrelationFlowType type) {
-  CuptiActivityApi::CorrelationFlowType cuptiType =
+  MuptiActivityApi::CorrelationFlowType muptiType =
       (type == CorrelationFlowType::User)
-      ? CuptiActivityApi::CorrelationFlowType::User
-      : CuptiActivityApi::CorrelationFlowType::Default;
-  CuptiActivityApi::pushCorrelationID(id, cuptiType);
+      ? MuptiActivityApi::CorrelationFlowType::User
+      : MuptiActivityApi::CorrelationFlowType::Default;
+  MuptiActivityApi::pushCorrelationID(id, muptiType);
 }
 
-void CuptiActivityProfiler::popCorrelationIdImpl(CorrelationFlowType type) {
-  CuptiActivityApi::CorrelationFlowType cuptiType =
+void MuptiActivityProfiler::popCorrelationIdImpl(CorrelationFlowType type) {
+  MuptiActivityApi::CorrelationFlowType muptiType =
       (type == CorrelationFlowType::User)
-      ? CuptiActivityApi::CorrelationFlowType::User
-      : CuptiActivityApi::CorrelationFlowType::Default;
-  CuptiActivityApi::popCorrelationID(cuptiType);
+      ? MuptiActivityApi::CorrelationFlowType::User
+      : MuptiActivityApi::CorrelationFlowType::Default;
+  MuptiActivityApi::popCorrelationID(muptiType);
 }
 
-void CuptiActivityProfiler::onResetTraceData() {
-  cupti_.teardownContext();
+void MuptiActivityProfiler::onResetTraceData() {
+  mupti_.teardownContext();
   KernelRegistry::singleton()->clear();
   waitEventMap().clear();
   ctxToDeviceId().clear();
 }
 
-void CuptiActivityProfiler::onFinalizeTrace(
+void MuptiActivityProfiler::onFinalizeTrace(
     [[maybe_unused]] const Config& config,
     ActivityLogger& logger) {
   // Overhead info
-  overheadInfo_.emplace_back("CUPTI Overhead");
+  overheadInfo_.emplace_back("MUPTI Overhead");
   for (const auto& info : overheadInfo_) {
     logger.handleOverheadInfo(info, captureWindowStartTime_);
   }
 }
 
-void CuptiActivityProfiler::processGpuActivities(ActivityLogger& logger) {
+void MuptiActivityProfiler::processGpuActivities(ActivityLogger& logger) {
   VLOG(0) << "Retrieving GPU activity buffers";
-  traceBuffers_->gpu = cupti_.activityBuffers();
+  traceBuffers_->gpu = mupti_.activityBuffers();
   if (VLOG_IS_ON(1)) {
-    addOverheadSample(flushOverhead_, cupti_.flushOverhead);
+    addOverheadSample(flushOverhead_, mupti_.flushOverhead);
   }
   if (traceBuffers_->gpu) {
     // Pass 1: Preprocess all raw records to populate correlation, event, and
@@ -199,10 +199,10 @@ void CuptiActivityProfiler::processGpuActivities(ActivityLogger& logger) {
 
     // Pass 2: Materialize activities. buildProcessingState() has already
     // populated correlation, event, and context lookup state;
-    // EXTERNAL_CORRELATION is a no-op in handleCuptiActivity.
-    const auto count_and_size = cupti_.processActivities(
-        *traceBuffers_->gpu, [this, &logger](const CUpti_Activity* record) {
-          handleCuptiActivity(record, &logger);
+    // EXTERNAL_CORRELATION is a no-op in handleMuptiActivity.
+    const auto count_and_size = mupti_.processActivities(
+        *traceBuffers_->gpu, [this, &logger](const MUpti_Activity* record) {
+          handleMuptiActivity(record, &logger);
         });
     logDeferredEvents();
     LOG(INFO) << "Processed " << count_and_size.first << " GPU records ("
@@ -212,7 +212,7 @@ void CuptiActivityProfiler::processGpuActivities(ActivityLogger& logger) {
     // resourceOverheadCount_ is set while processing GPU activities
     if (resourceOverheadCount_ > 0) {
       LOG(INFO) << "Allocated " << resourceOverheadCount_
-                << " extra CUPTI buffers.";
+                << " extra MUPTI buffers.";
     }
     LOGGER_OBSERVER_ADD_METADATA(
         "ResourceOverhead", std::to_string(resourceOverheadCount_));
@@ -229,7 +229,7 @@ static inline void updateCtxToDeviceId(const T* act) {
 
 // P2P memcpy carries separate source and destination (context, device) pairs.
 static inline void updateCtxToDeviceId(
-    const CUpti_ActivityMemcpyPtoPType* act) {
+    const MUpti_ActivityMemcpyPtoPType* act) {
   if (!ctxToDeviceId().contains(act->srcContextId)) {
     ctxToDeviceId()[act->srcContextId] = act->srcDeviceId;
   }
@@ -238,9 +238,9 @@ static inline void updateCtxToDeviceId(
   }
 }
 
-// Insert a CUDA event record into waitEventMap(), keeping the per-key vector
+// Insert a MUSA event record into waitEventMap(), keeping the per-key vector
 // sorted by correlationId so getWaitEventInfo() can binary-search it.
-static inline void updateWaitEventMap(const CUpti_ActivityCudaEventType* act) {
+static inline void updateWaitEventMap(const MUpti_ActivityMusaEventType* act) {
   auto key = CtxEventPair{act->contextId, act->eventId};
   std::vector<WaitEventInfo>& vec = waitEventMap()[key];
   auto pos = std::lower_bound(
@@ -253,33 +253,33 @@ static inline void updateWaitEventMap(const CUpti_ActivityCudaEventType* act) {
   vec.insert(pos, WaitEventInfo{act->streamId, act->correlationId});
 }
 
-void CuptiActivityProfiler::buildProcessingState(
-    CuptiActivityBufferMap& buffers) {
-  cupti_.processActivities(buffers, [this](const CUpti_Activity* record) {
+void MuptiActivityProfiler::buildProcessingState(
+    MuptiActivityBufferMap& buffers) {
+  mupti_.processActivities(buffers, [this](const MUpti_Activity* record) {
     switch (record->kind) {
-      case CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
+      case MUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
         handleCorrelationActivity(
-            reinterpret_cast<const CUpti_ActivityExternalCorrelation*>(record));
+            reinterpret_cast<const MUpti_ActivityExternalCorrelation*>(record));
         break;
-      case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
+      case MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
         updateCtxToDeviceId(
-            reinterpret_cast<const CUpti_ActivityKernelType*>(record));
+            reinterpret_cast<const MUpti_ActivityKernelType*>(record));
         break;
-      case CUPTI_ACTIVITY_KIND_MEMCPY:
+      case MUPTI_ACTIVITY_KIND_MEMCPY:
         updateCtxToDeviceId(
-            reinterpret_cast<const CUpti_ActivityMemcpyType*>(record));
+            reinterpret_cast<const MUpti_ActivityMemcpyType*>(record));
         break;
-      case CUPTI_ACTIVITY_KIND_MEMSET:
+      case MUPTI_ACTIVITY_KIND_MEMSET:
         updateCtxToDeviceId(
-            reinterpret_cast<const CUpti_ActivityMemsetType*>(record));
+            reinterpret_cast<const MUpti_ActivityMemsetType*>(record));
         break;
-      case CUPTI_ACTIVITY_KIND_MEMCPY2:
+      case MUPTI_ACTIVITY_KIND_MEMCPY2:
         updateCtxToDeviceId(
-            reinterpret_cast<const CUpti_ActivityMemcpyPtoPType*>(record));
+            reinterpret_cast<const MUpti_ActivityMemcpyPtoPType*>(record));
         break;
-      case CUPTI_ACTIVITY_KIND_CUDA_EVENT:
+      case MUPTI_ACTIVITY_KIND_MUSA_EVENT:
         updateWaitEventMap(
-            reinterpret_cast<const CUpti_ActivityCudaEventType*>(record));
+            reinterpret_cast<const MUpti_ActivityMusaEventType*>(record));
         break;
       default:
         break;
@@ -287,30 +287,30 @@ void CuptiActivityProfiler::buildProcessingState(
   });
 }
 
-inline void CuptiActivityProfiler::handleCorrelationActivity(
-    const CUpti_ActivityExternalCorrelation* correlation) {
-  if (correlation->externalKind == CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0) {
+inline void MuptiActivityProfiler::handleCorrelationActivity(
+    const MUpti_ActivityExternalCorrelation* correlation) {
+  if (correlation->externalKind == MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0) {
     cpuCorrelationMap_[correlation->correlationId] = correlation->externalId;
   } else if (
-      correlation->externalKind == CUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1) {
+      correlation->externalKind == MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM1) {
     userCorrelationMap_[correlation->correlationId] = correlation->externalId;
   } else {
-    LOG(WARNING) << "Invalid CUpti_ActivityExternalCorrelation sent to "
-                    "handleCuptiActivity";
+    LOG(WARNING) << "Invalid MUpti_ActivityExternalCorrelation sent to "
+                    "handleMuptiActivity";
     ecs_.invalid_external_correlation_events++;
   }
 }
 
-void CuptiActivityProfiler::handleRuntimeActivity(
-    const CUpti_ActivityAPI* activity,
+void MuptiActivityProfiler::handleRuntimeActivity(
+    const MUpti_ActivityAPI* activity,
     ActivityLogger* logger) {
-  if (CuptiCbidRegistry::instance().isBlocklisted(
+  if (MuptiCbidRegistry::instance().isBlocklisted(
           CallbackDomain::RUNTIME, activity->cbid)) {
     ecs_.blocklisted_runtime_events++;
     return;
   }
   VLOG(2) << activity->correlationId
-          << ": CUPTI_ACTIVITY_KIND_RUNTIME, cbid=" << activity->cbid
+          << ": MUPTI_ACTIVITY_KIND_RUNTIME, cbid=" << activity->cbid
           << " tid=" << activity->threadId;
   int32_t tid = activity->threadId;
   const auto& it = resourceInfo_.find({processId(), tid});
@@ -329,16 +329,16 @@ void CuptiActivityProfiler::handleRuntimeActivity(
   setGpuActivityPresent(true);
 }
 
-void CuptiActivityProfiler::handleDriverActivity(
-    const CUpti_ActivityAPI* activity,
+void MuptiActivityProfiler::handleDriverActivity(
+    const MUpti_ActivityAPI* activity,
     ActivityLogger* logger) {
-  // we only want to collect cuLaunchKernel events, for triton kernel launches
+  // we only want to collect muLaunchKernel events, for triton kernel launches
   if (!isTrackedDriverCbid(*activity)) {
     // XXX should we count other driver events?
     return;
   }
   VLOG(2) << activity->correlationId
-          << ": CUPTI_ACTIVITY_KIND_DRIVER, cbid=" << activity->cbid
+          << ": MUPTI_ACTIVITY_KIND_DRIVER, cbid=" << activity->cbid
           << " tid=" << activity->threadId;
   int32_t tid = activity->threadId;
   const auto& it = resourceInfo_.find({processId(), tid});
@@ -357,15 +357,15 @@ void CuptiActivityProfiler::handleDriverActivity(
   setGpuActivityPresent(true);
 }
 
-void CuptiActivityProfiler::handleOverheadActivity(
-    const CUpti_ActivityOverhead* activity,
+void MuptiActivityProfiler::handleOverheadActivity(
+    const MUpti_ActivityOverhead* activity,
     ActivityLogger* logger) {
-  VLOG(2) << ": CUPTI_ACTIVITY_KIND_OVERHEAD"
+  VLOG(2) << ": MUPTI_ACTIVITY_KIND_OVERHEAD"
           << " overheadKind=" << activity->overheadKind;
   const auto& overhead_activity =
       traceBuffers_->addActivityWrapper(OverheadActivity(activity, nullptr));
   // Monitor memory overhead
-  if (activity->overheadKind == CUPTI_ACTIVITY_OVERHEAD_CUPTI_RESOURCE) {
+  if (activity->overheadKind == MUPTI_ACTIVITY_OVERHEAD_MUPTI_RESOURCE) {
     resourceOverheadCount_++;
   }
 
@@ -401,22 +401,22 @@ static std::optional<WaitEventInfo> getWaitEventInfo(
   return std::nullopt;
 }
 
-void CuptiActivityProfiler::handleCudaEventActivity(
-    const CUpti_ActivityCudaEventType* activity,
+void MuptiActivityProfiler::handleMusaEventActivity(
+    const MUpti_ActivityMusaEventType* activity,
     ActivityLogger* logger) {
-  VLOG(2) << ": CUPTI_ACTIVITY_KIND_CUDA_EVENT"
+  VLOG(2) << ": MUPTI_ACTIVITY_KIND_MUSA_EVENT"
           << " corrId=" << activity->correlationId
           << " eventId=" << activity->eventId
           << " streamId=" << activity->streamId
           << " contextId=" << activity->contextId;
 
-  // Create and log the CUDA event activity
+  // Create and log the MUSA event activity
   const ITraceActivity* linked =
       linkedActivity(activity->correlationId, cpuCorrelationMap_);
-  const auto& cuda_event_activity =
-      traceBuffers_->addActivityWrapper(CudaEventActivity(activity, linked));
+  const auto& musa_event_activity =
+      traceBuffers_->addActivityWrapper(MusaEventActivity(activity, linked));
 
-  if (outOfRange(cuda_event_activity)) {
+  if (outOfRange(musa_event_activity)) {
     return;
   }
 
@@ -427,23 +427,23 @@ void CuptiActivityProfiler::handleCudaEventActivity(
     recordDevice(device_id);
   }
 
-  VLOG(2) << "Logging CUDA event activity device = " << device_id
+  VLOG(2) << "Logging MUSA event activity device = " << device_id
           << " stream = " << activity->streamId;
-  cuda_event_activity.log(*logger);
+  musa_event_activity.log(*logger);
   setGpuActivityPresent(true);
 }
 
-void CuptiActivityProfiler::handleCudaSyncActivity(
-    const CUpti_ActivitySynchronization* activity,
+void MuptiActivityProfiler::handleMusaSyncActivity(
+    const MUpti_ActivitySynchronization* activity,
     ActivityLogger* logger) {
-  VLOG(2) << ": CUPTI_ACTIVITY_KIND_SYNCHRONIZATION"
+  VLOG(2) << ": MUPTI_ACTIVITY_KIND_SYNCHRONIZATION"
           << " type=" << syncTypeString(activity->type)
           << " corrId=" << activity->correlationId
           << " streamId=" << activity->streamId
-          << " eventId=" << activity->cudaEventId
+          << " eventId=" << activity->musaEventId
           << " contextId=" << activity->contextId;
 
-  if (!config().activitiesCudaSyncWaitEvents() &&
+  if (!config().activitiesMusaSyncWaitEvents() &&
       isWaitEventSync(activity->type)) {
     return;
   }
@@ -453,7 +453,7 @@ void CuptiActivityProfiler::handleCudaSyncActivity(
   int32_t src_corrid = -1;
   if (isEventSync(activity->type)) {
     auto maybe_wait_event_info = getWaitEventInfo(
-        activity->contextId, activity->cudaEventId, activity->correlationId);
+        activity->contextId, activity->musaEventId, activity->correlationId);
     if (maybe_wait_event_info) {
       src_stream = maybe_wait_event_info->stream;
       src_corrid = maybe_wait_event_info->correlationId;
@@ -465,11 +465,11 @@ void CuptiActivityProfiler::handleCudaSyncActivity(
       [activity, src_stream, src_corrid, device_id, logger, this]() {
         const ITraceActivity* linked =
             linkedActivity(activity->correlationId, this->cpuCorrelationMap_);
-        const auto& cuda_sync_activity =
+        const auto& musa_sync_activity =
             this->traceBuffers_->addActivityWrapper(
-                CudaSyncActivity(activity, linked, src_stream, src_corrid));
+                MusaSyncActivity(activity, linked, src_stream, src_corrid));
 
-        if (outOfRange(cuda_sync_activity)) {
+        if (outOfRange(musa_sync_activity)) {
           return;
         }
 
@@ -481,7 +481,7 @@ void CuptiActivityProfiler::handleCudaSyncActivity(
         VLOG(2) << "Logging sync event device = " << device_id
                 << " stream = " << activity->streamId
                 << " sync type = " << syncTypeString(activity->type);
-        cuda_sync_activity.log(*logger);
+        musa_sync_activity.log(*logger);
         setGpuActivityPresent(true);
       };
 
@@ -499,7 +499,7 @@ void CuptiActivityProfiler::handleCudaSyncActivity(
   }
 }
 
-void CuptiActivityProfiler::logDeferredEvents() {
+void MuptiActivityProfiler::logDeferredEvents() {
   // Stream Wait Events tend to be noisy, only pass these events if
   // there was some GPU kernel/memcopy/memset observed on it in the trace
   // window.
@@ -514,7 +514,7 @@ void CuptiActivityProfiler::logDeferredEvents() {
 }
 
 template <class T>
-inline void CuptiActivityProfiler::handleGpuActivity(
+inline void MuptiActivityProfiler::handleGpuActivity(
     const T* act,
     ActivityLogger* logger) {
   const ITraceActivity* linked =
@@ -529,20 +529,20 @@ uint32_t contextIdtoDeviceId(uint32_t contextId) {
   return it != ctxToDeviceId().end() ? it->second : 0;
 }
 
-void CuptiActivityProfiler::handleCuptiActivity(
-    const CUpti_Activity* record,
+void MuptiActivityProfiler::handleMuptiActivity(
+    const MUpti_Activity* record,
     ActivityLogger* logger) {
   switch (record->kind) {
-    case CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
+    case MUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
       // Populated in buildProcessingState().
       break;
-    case CUPTI_ACTIVITY_KIND_RUNTIME:
+    case MUPTI_ACTIVITY_KIND_RUNTIME:
       handleRuntimeActivity(
-          reinterpret_cast<const CUpti_ActivityAPI*>(record), logger);
+          reinterpret_cast<const MUpti_ActivityAPI*>(record), logger);
       break;
-    case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: {
-      const CUpti_ActivityKernelType* kernel =
-          reinterpret_cast<const CUpti_ActivityKernelType*>(record);
+    case MUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: {
+      const MUpti_ActivityKernelType* kernel =
+          reinterpret_cast<const MUpti_ActivityKernelType*>(record);
       // Register all kernels launches so we could correlate them with other
       // events.
       KernelRegistry::singleton()->recordKernel(
@@ -550,39 +550,46 @@ void CuptiActivityProfiler::handleCuptiActivity(
       handleGpuActivity(kernel, logger);
       break;
     }
-    case CUPTI_ACTIVITY_KIND_SYNCHRONIZATION:
-      handleCudaSyncActivity(
-          reinterpret_cast<const CUpti_ActivitySynchronization*>(record),
+    case MUPTI_ACTIVITY_KIND_SYNCHRONIZATION:
+      handleMusaSyncActivity(
+          reinterpret_cast<const MUpti_ActivitySynchronization*>(record),
           logger);
       break;
-    case CUPTI_ACTIVITY_KIND_CUDA_EVENT:
-      handleCudaEventActivity(
-          reinterpret_cast<const CUpti_ActivityCudaEventType*>(record), logger);
+    case MUPTI_ACTIVITY_KIND_MUSA_EVENT:
+      handleMusaEventActivity(
+          reinterpret_cast<const MUpti_ActivityMusaEventType*>(record), logger);
       break;
-    case CUPTI_ACTIVITY_KIND_MEMCPY:
+    case MUPTI_ACTIVITY_KIND_MEMCPY:
       handleGpuActivity(
-          reinterpret_cast<const CUpti_ActivityMemcpyType*>(record), logger);
+          reinterpret_cast<const MUpti_ActivityMemcpyType*>(record), logger);
       break;
-    case CUPTI_ACTIVITY_KIND_MEMCPY2:
+    case MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC:
       handleGpuActivity(
-          reinterpret_cast<const CUpti_ActivityMemcpyPtoPType*>(record),
-          logger);
+          reinterpret_cast<const MUpti_ActivityMemoryAtomic*>(record), logger);
       break;
-    case CUPTI_ACTIVITY_KIND_MEMSET:
+    case MUPTI_ACTIVITY_KIND_MEMORY_ATOMIC_VALUE:
       handleGpuActivity(
-          reinterpret_cast<const CUpti_ActivityMemsetType*>(record), logger);
+          reinterpret_cast<const MUpti_ActivityMemoryAtomicValue*>(record), logger);
       break;
-    case CUPTI_ACTIVITY_KIND_OVERHEAD:
+    case MUPTI_ACTIVITY_KIND_MEMORY_TRANSFER:
+      handleGpuActivity(
+          reinterpret_cast<const MUpti_ActivityMemoryTransfer*>(record), logger);
+      break;
+    case MUPTI_ACTIVITY_KIND_MEMSET:
+      handleGpuActivity(
+          reinterpret_cast<const MUpti_ActivityMemsetType*>(record), logger);
+      break;
+    case MUPTI_ACTIVITY_KIND_OVERHEAD:
       handleOverheadActivity(
-          reinterpret_cast<const CUpti_ActivityOverhead*>(record), logger);
+          reinterpret_cast<const MUpti_ActivityOverhead*>(record), logger);
       break;
-    case CUPTI_ACTIVITY_KIND_DRIVER:
+    case MUPTI_ACTIVITY_KIND_DRIVER:
       handleDriverActivity(
-          reinterpret_cast<const CUpti_ActivityAPI*>(record), logger);
+          reinterpret_cast<const MUpti_ActivityAPI*>(record), logger);
       break;
     default:
       LOG(WARNING) << "Unexpected activity type: " << record->kind;
-      ecs_.unexepected_cuda_events++;
+      ecs_.unexepected_musa_events++;
       break;
   }
 }

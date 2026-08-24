@@ -13,11 +13,11 @@
 #include "ActivityProfilerProxy.h"
 #include "ConfigLoader.h"
 #include "DaemonConfigLoader.h"
-#ifdef HAS_CUPTI
-#include "CuptiActivityApi.h"
+#ifdef HAS_MUPTI
+#include "MuptiActivityApi.h"
 #endif
-#ifdef HAS_CUPTI_PM_SAMPLING
-#include "CuptiPMSamplingProfiler.h"
+#ifdef HAS_MUPTI_PM_SAMPLING
+#include "MuptiPMSamplingProfiler.h"
 #endif
 #ifdef HAS_ROCTRACER
 #include "RocprofLogger.h"
@@ -34,21 +34,21 @@
 
 namespace KINETO_NAMESPACE {
 
-#ifdef HAS_CUPTI
+#ifdef HAS_MUPTI
 // Some models suffer from excessive instrumentation code gen
 // on dynamic attach which can hang for more than 5+ seconds.
-// If the workload was meant to be traced, preload the CUPTI
+// If the workload was meant to be traced, preload the MUPTI
 // to take the performance hit early on.
-// https://docs.nvidia.com/cupti/r_main.html#r_overhead
-static bool shouldPreloadCuptiInstrumentation() {
-#if defined(CUDA_VERSION) && CUDA_VERSION < 11020
+// https://docs.nvidia.com/mupti/r_main.html#r_overhead
+static bool shouldPreloadMuptiInstrumentation() {
+#if defined(MUSA_VERSION) && MUSA_VERSION < 11020
   return true;
 #else
   return false;
 #endif
 }
 
-#endif // HAS_CUPTI
+#endif // HAS_MUPTI
 
 } // namespace KINETO_NAMESPACE
 
@@ -76,11 +76,11 @@ void libkineto_init(bool cpuOnly, [[maybe_unused]] bool logOnError) {
   }
 #endif
 
-#ifdef HAS_CUPTI
-  if (!cpuOnly && shouldPreloadCuptiInstrumentation()) {
-    CuptiActivityApi::forceLoadCupti();
+#ifdef HAS_MUPTI
+  if (!cpuOnly && shouldPreloadMuptiInstrumentation()) {
+    MuptiActivityApi::forceLoadMupti();
   }
-#endif // HAS_CUPTI
+#endif // HAS_MUPTI
 
 #ifdef HAS_ROCTRACER
   if (!cpuOnly) {
@@ -93,11 +93,11 @@ void libkineto_init(bool cpuOnly, [[maybe_unused]] bool logOnError) {
   api.registerProfiler(
       std::make_unique<ActivityProfilerProxy>(cpuOnly, config_loader));
 
-#ifdef HAS_CUPTI_PM_SAMPLING
+#ifdef HAS_MUPTI_PM_SAMPLING
   if (!cpuOnly) {
     libkineto::api().registerProfilerFactory(
         []() -> std::unique_ptr<IActivityProfiler> {
-          return std::make_unique<CuptiPMSamplingProfiler>();
+          return std::make_unique<MuptiPMSamplingProfiler>();
         });
   }
 #endif
@@ -122,8 +122,8 @@ void libkineto_init(bool cpuOnly, [[maybe_unused]] bool logOnError) {
 #endif
 }
 
-// The cuda driver calls this function if the CUDA_INJECTION64_PATH environment
-// variable is set. Should be skipped if unset or CUDA_INJECTION64_PATH=none.
+// The musa driver calls this function if the MUSA_INJECTION64_PATH environment
+// variable is set. Should be skipped if unset or MUSA_INJECTION64_PATH=none.
 int InitializeInjection(void) {
   LOG(INFO) << "Injection mode: Initializing libkineto";
   libkineto_init(false /*cpuOnly*/, true /*logOnError*/);

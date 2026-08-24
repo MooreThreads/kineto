@@ -14,7 +14,7 @@
 
 #include "include/libkineto.h"
 
-// Shared fixtures for the CUDA and ROCm activity-profiler tests: a mock CPU-op
+// Shared fixtures for the MUSA and ROCm activity-profiler tests: a mock CPU-op
 // buffer, a default trace span, and the param-comms / collective metadata
 // field-name constants both tests assert on. These depend on the kineto
 // activity types, so they live here rather than in the generic TestUtils.h.

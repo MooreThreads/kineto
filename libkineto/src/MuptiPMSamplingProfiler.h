@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "CuptiPMSamplingController.h"
+#include "MuptiPMSamplingController.h"
 #include "IActivityProfiler.h"
 
 namespace libkineto {
@@ -24,13 +24,13 @@ struct CpuTraceBuffer;
 namespace KINETO_NAMESPACE {
 
 // TODO: Support dynamic collection toggling
-class CuptiPMSamplingSession final
+class MuptiPMSamplingSession final
     : public libkineto::IActivityProfilerSession {
  public:
-  explicit CuptiPMSamplingSession(const CuptiPMSamplingConfig& config);
-  explicit CuptiPMSamplingSession(
-      std::unique_ptr<ICuptiPMSamplingController> controller);
-  ~CuptiPMSamplingSession() override;
+  explicit MuptiPMSamplingSession(const MuptiPMSamplingConfig& config);
+  explicit MuptiPMSamplingSession(
+      std::unique_ptr<IMuptiPMSamplingController> controller);
+  ~MuptiPMSamplingSession() override;
 
   [[nodiscard]] bool prepare();
   void start() override;
@@ -46,14 +46,14 @@ class CuptiPMSamplingSession final
  private:
   [[nodiscard]] std::unique_ptr<libkineto::CpuTraceBuffer> buildTraceBuffer();
 
-  std::unique_ptr<ICuptiPMSamplingController> controller_;
+  std::unique_ptr<IMuptiPMSamplingController> controller_;
   std::unique_ptr<libkineto::CpuTraceBuffer> traceBuffer_;
 };
 
-// The naming is unfortunate here, because CUPTI PM sampling is not activity
+// The naming is unfortunate here, because MUPTI PM sampling is not activity
 // profiling. However, Kineto's registration logic is based on
 // IActivityProfiler, so this is the simplest way to introduce a new profiler.
-class CuptiPMSamplingProfiler final : public libkineto::IActivityProfiler {
+class MuptiPMSamplingProfiler final : public libkineto::IActivityProfiler {
  public:
   [[nodiscard]] const std::string& name() const override;
   [[nodiscard]] const std::set<libkineto::ActivityType>& availableActivities()

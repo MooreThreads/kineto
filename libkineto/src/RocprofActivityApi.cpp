@@ -145,7 +145,7 @@ int RocprofActivityApi::processActivities(
   for (auto& item : d->rows_) {
     bool filtered = false;
     if (item->type != ROCTRACER_ACTIVITY_ASYNC &&
-        !isLogged(ActivityType::CUDA_RUNTIME)) {
+        !isLogged(ActivityType::PRIVATEUSE1_RUNTIME)) {
       filtered = true;
     } else {
       switch (reinterpret_cast<rocprofAsyncRow*>(item)->domain) {

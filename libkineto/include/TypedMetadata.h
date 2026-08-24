@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
+#include <utility>
 
 namespace libkineto {
 
@@ -95,13 +96,24 @@ class ITypedMetadataVisitor {
   // Visits a nested dict: everything `visitChildren` visits is grouped under
   // dict.name. Example:
   // visitor.visit(kStats, [](auto& d) { d.visit(kCount, int64_t{1}); });
-  void visit(
-      const MetadataDict& dict,
-      std::invocable<ITypedMetadataVisitor&> auto&& visitChildren) {
+  // c++17
+  template <
+    typename Visitor,
+    typename = std::enable_if_t<
+        std::is_invocable_v<Visitor&, ITypedMetadataVisitor&>>>
+  void visit(const MetadataDict& dict, Visitor&& visitChildren) {
     beginDict(dict.name);
-    visitChildren(*this);
+    std::forward<Visitor>(visitChildren)(*this);
     endDict();
   }
+  // c++20
+  // void visit(
+  //     const MetadataDict& dict,
+  //     std::invocable<ITypedMetadataVisitor&> auto&& visitChildren) {
+  //   beginDict(dict.name);
+  //   visitChildren(*this);
+  //   endDict();
+  // }
 
  protected:
   // beginDict/endDict bracket a nested dict and are always invoked as a

@@ -13,7 +13,7 @@
 namespace KINETO_NAMESPACE {
 
 bool amdGpuAvailable = false;
-bool cudaGpuAvailable = false;
+bool musaGpuAvailable = false;
 
 bool isAMDGpuAvailable() {
 #ifdef HAS_ROCTRACER
@@ -29,24 +29,24 @@ bool isAMDGpuAvailable() {
   return amdGpuAvailable;
 }
 
-bool isCUDAGpuAvailable() {
-#ifdef HAS_CUPTI
+bool isMUSAGpuAvailable() {
+#ifdef HAS_MUPTI
   static std::once_flag once;
   std::call_once(once, [] {
-    // determine CUDA GPU availability on the system
-    cudaError_t error;
+    // determine MUSA GPU availability on the system
+    musaError_t error;
     int deviceCount;
-    error = cudaGetDeviceCount(&deviceCount);
-    cudaGpuAvailable = (error == cudaSuccess && deviceCount > 0);
+    error = musaGetDeviceCount(&deviceCount);
+    musaGpuAvailable = (error == musaSuccess && deviceCount > 0);
   });
 #endif
-  return cudaGpuAvailable;
+  return musaGpuAvailable;
 }
 
 bool isGpuAvailable() {
   bool amd = isAMDGpuAvailable();
-  bool cuda = isCUDAGpuAvailable();
-  return amd || cuda;
+  bool musa = isMUSAGpuAvailable();
+  return amd || musa;
 }
 
 } // namespace KINETO_NAMESPACE

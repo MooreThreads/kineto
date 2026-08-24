@@ -146,7 +146,7 @@ struct RuntimeActivity : public RocprofActivity<T> {
     return raw().tid;
   }
   ActivityType type() const override {
-    return ActivityType::CUDA_RUNTIME;
+    return ActivityType::PRIVATEUSE1_RUNTIME;
   }
   bool flowStart() const override;
   const std::string name() const override {

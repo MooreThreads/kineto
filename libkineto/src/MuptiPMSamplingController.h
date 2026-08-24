@@ -15,15 +15,15 @@
 #include <thread>
 #include <vector>
 
-#include "CuptiPMSamplingApi.h"
+#include "MuptiPMSamplingApi.h"
 
 namespace KINETO_NAMESPACE {
 
-// CuptiPMSamplingSession depends on this interface so unit tests can provide a
-// mock controller instead of constructing the real CUPTI controller.
-class ICuptiPMSamplingController {
+// MuptiPMSamplingSession depends on this interface so unit tests can provide a
+// mock controller instead of constructing the real MUPTI controller.
+class IMuptiPMSamplingController {
  public:
-  virtual ~ICuptiPMSamplingController() = default;
+  virtual ~IMuptiPMSamplingController() = default;
 
   [[nodiscard]] virtual bool prepare() = 0;
   virtual void start() = 0;
@@ -31,19 +31,19 @@ class ICuptiPMSamplingController {
 
   [[nodiscard]] virtual int32_t deviceId() const = 0;
   [[nodiscard]] virtual const std::vector<std::string>& metricNames() const = 0;
-  [[nodiscard]] virtual std::vector<CuptiPMSample> takeSamples() = 0;
+  [[nodiscard]] virtual std::vector<MuptiPMSample> takeSamples() = 0;
 };
 
-class CuptiPMSamplingController final : public ICuptiPMSamplingController {
+class MuptiPMSamplingController final : public IMuptiPMSamplingController {
  public:
-  explicit CuptiPMSamplingController(CuptiPMSamplingConfig config);
-  CuptiPMSamplingController(const CuptiPMSamplingController&) = delete;
-  CuptiPMSamplingController& operator=(const CuptiPMSamplingController&) =
+  explicit MuptiPMSamplingController(MuptiPMSamplingConfig config);
+  MuptiPMSamplingController(const MuptiPMSamplingController&) = delete;
+  MuptiPMSamplingController& operator=(const MuptiPMSamplingController&) =
       delete;
-  CuptiPMSamplingController(CuptiPMSamplingController&&) = delete;
-  CuptiPMSamplingController& operator=(CuptiPMSamplingController&&) = delete;
+  MuptiPMSamplingController(MuptiPMSamplingController&&) = delete;
+  MuptiPMSamplingController& operator=(MuptiPMSamplingController&&) = delete;
 
-  ~CuptiPMSamplingController() override;
+  ~MuptiPMSamplingController() override;
 
   [[nodiscard]] bool prepare() override;
   void start() override;
@@ -52,25 +52,25 @@ class CuptiPMSamplingController final : public ICuptiPMSamplingController {
 
   [[nodiscard]] int32_t deviceId() const override;
   [[nodiscard]] const std::vector<std::string>& metricNames() const override;
-  [[nodiscard]] std::vector<CuptiPMSample> takeSamples() override;
+  [[nodiscard]] std::vector<MuptiPMSample> takeSamples() override;
 
  private:
   void decodeLoop();
-  bool decodeBatch(std::vector<CuptiPMSample>& decodedSamples);
-  void drain(std::vector<CuptiPMSample>& decodedSamples);
+  bool decodeBatch(std::vector<MuptiPMSample>& decodedSamples);
+  void drain(std::vector<MuptiPMSample>& decodedSamples);
   bool validateConfig() const;
-  bool validateSample(const CuptiPMSample& sample) const;
+  bool validateSample(const MuptiPMSample& sample) const;
   void logCurrentException(const char* fallback);
 
-  CuptiPMSamplingConfig config_;
-  CuptiPMSamplingApi api_;
+  MuptiPMSamplingConfig config_;
+  MuptiPMSamplingApi api_;
   std::thread decodeThread_;
   std::atomic_bool stopRequested_{false};
   std::atomic_bool decodeFailed_{false};
   std::mutex samplesMutex_;
   std::mutex waitMutex_;
   std::condition_variable waitCondition_;
-  std::vector<CuptiPMSample> samples_;
+  std::vector<MuptiPMSample> samples_;
   bool discardFirstSample_{true};
   bool prepared_{false};
   // True while a collection started by api_.start() is active.

@@ -232,7 +232,7 @@ class ChromeTraceLogger : public libkineto::ActivityLogger {
   // distributedInfo of trace
   std::unordered_map<std::string, pgConfig> pgMap_ = {};
 
-  // Offset added to stream ID for CUDA_SYNC events to place them on a
+  // Offset added to stream ID for MUSA_SYNC events to place them on a
   // separate row from kernel events in the Chrome Trace JSON output.
   static constexpr int64_t kSyncStreamTidOffset = 1000000;
 

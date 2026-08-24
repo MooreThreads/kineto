@@ -107,7 +107,7 @@ inline constexpr MetadataField<std::string> kVendor{"vendor"};
 inline constexpr MetadataField<std::string> kDriverVersion{"driverVersion"};
 } // namespace libkineto::DevicePropertyMetadataFields
 
-namespace libkineto::CudaMetadataFields {
+namespace libkineto::MusaMetadataFields {
 inline constexpr MetadataDict kOccupancy{"occupancy"};
 inline constexpr MetadataField<int64_t> kActiveBlocksPerMultiprocessor{
     "activeBlocksPerMultiprocessor"};
@@ -125,12 +125,14 @@ inline constexpr MetadataField<int64_t> kBlockLimitSharedMem{
 inline constexpr MetadataField<int64_t> kBlockLimitWarps{"blockLimitWarps"};
 inline constexpr MetadataField<double> kBlocksPerSm{"blocks per SM"};
 inline constexpr MetadataField<uint64_t> kBytes{"bytes"};
+inline constexpr MetadataField<uint64_t> kElementCount{"element count"};
+inline constexpr MetadataField<uint64_t> kAtomicValue{"atomic value"};
 inline constexpr MetadataField<uint64_t> kCbid{"cbid"};
 inline constexpr MetadataField<uint64_t> kChannel{"channel"};
 inline constexpr MetadataField<int64_t> kChannelType{"channel_type"};
 inline constexpr MetadataField<uint64_t> kContext{"context"};
 inline constexpr MetadataField<uint64_t> kCorrelation{"correlation"};
-inline constexpr MetadataField<std::string> kCudaSyncKind{"cuda_sync_kind"};
+inline constexpr MetadataField<std::string> kMusaSyncKind{"musa_sync_kind"};
 inline constexpr MetadataField<int64_t> kDevice{"device"};
 inline constexpr MetadataField<int64_t> kEstAchievedOccupancyPercent{
     "est. achieved occupancy %"};
@@ -153,13 +155,13 @@ inline constexpr MetadataField<int64_t> kSharedMemory{"shared memory"};
 inline constexpr MetadataField<int64_t> kStream{"stream"};
 inline constexpr MetadataField<uint64_t> kToContext{"toContext"};
 inline constexpr MetadataField<uint64_t> kToDevice{"toDevice"};
-inline constexpr MetadataField<uint64_t> kWaitOnCudaEventId{
-    "wait_on_cuda_event_id"};
-inline constexpr MetadataField<int64_t> kWaitOnCudaEventRecordCorrId{
-    "wait_on_cuda_event_record_corr_id"};
+inline constexpr MetadataField<uint64_t> kWaitOnMusaEventId{
+    "wait_on_musa_event_id"};
+inline constexpr MetadataField<int64_t> kWaitOnMusaEventRecordCorrId{
+    "wait_on_musa_event_record_corr_id"};
 inline constexpr MetadataField<int64_t> kWaitOnStream{"wait_on_stream"};
 inline constexpr MetadataField<double> kWarpsPerSm{"warps per SM"};
-} // namespace libkineto::CudaMetadataFields
+} // namespace libkineto::MusaMetadataFields
 
 namespace libkineto::RocmMetadataFields {
 inline constexpr MetadataField<std::vector<int64_t>> kBlock{"block"};

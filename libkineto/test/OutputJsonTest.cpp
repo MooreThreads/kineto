@@ -211,7 +211,7 @@ TEST(OutputJsonTest, CollectiveMetadataToleratesQuotedAndUnquotedForms) {
       {"pg_config",
        {{{"pg_name", "0"},
          {"pg_desc", "default_pg"},
-         {"backend_config", "cuda:nccl"},
+         {"backend_config", "musa:nccl"},
          {"pg_size", 8},
          {"ranks", "[0, 1, 2, 3, 4, 5, 6, 7]"}}}},
       {"nccl_version", "unknown"},

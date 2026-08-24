@@ -27,7 +27,7 @@ set(KINETO_LIBRARY_TYPE "default" CACHE STRING
 set_property(CACHE KINETO_LIBRARY_TYPE PROPERTY STRINGS default shared static)
 option(KINETO_BUILD_TESTS "Build kineto unit tests" ON)
 option(KINETO_BUILD_BENCHMARKS "Build kineto benchmarks" OFF)
-option(KINETO_ENABLE_CUPTI_PM_SAMPLING "Build CUPTI PM sampling support" OFF)
+option(KINETO_ENABLE_MUPTI_PM_SAMPLING "Build MUPTI PM sampling support" OFF)
 
 # When Kineto is embedded in a larger project, that project's test runner
 # usually discovers C++ test binaries in the install tree rather than the
@@ -49,9 +49,9 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
-if(DEFINED CUDA_SOURCE_DIR AND NOT DEFINED CUDAToolkit_ROOT)
-  set(CUDAToolkit_ROOT "${CUDA_SOURCE_DIR}")
-  message(STATUS " CUDA_SOURCE_DIR = ${CUDA_SOURCE_DIR}")
+if(DEFINED MUSA_SOURCE_DIR AND NOT DEFINED MUSAToolkit_ROOT)
+  set(MUSAToolkit_ROOT "${MUSA_SOURCE_DIR}")
+  message(STATUS " MUSA_SOURCE_DIR = ${MUSA_SOURCE_DIR}")
 endif()
 
 if(NOT ROCM_SOURCE_DIR)
@@ -72,10 +72,10 @@ if(NOT DEFINED CACHE{KINETO_BACKEND} AND NOT DEFINED KINETO_BACKEND)
 endif()
 
 set(KINETO_BACKEND "cpu" CACHE STRING
-    "Kineto GPU backend: cpu, cuda, rocm, or xpu")
-set_property(CACHE KINETO_BACKEND PROPERTY STRINGS cpu cuda rocm xpu)
+    "Kineto GPU backend: cpu, musa, rocm, or xpu")
+set_property(CACHE KINETO_BACKEND PROPERTY STRINGS cpu musa rocm xpu)
 
-set(_KINETO_BACKEND_VALID cpu cuda rocm xpu)
+set(_KINETO_BACKEND_VALID cpu musa rocm xpu)
 if(NOT KINETO_BACKEND IN_LIST _KINETO_BACKEND_VALID)
   message(FATAL_ERROR
     "KINETO_BACKEND=${KINETO_BACKEND} is invalid. "
@@ -84,37 +84,32 @@ endif()
 unset(_KINETO_BACKEND_VALID)
 message(STATUS "KINETO_BACKEND = ${KINETO_BACKEND}")
 
-if(KINETO_ENABLE_CUPTI_PM_SAMPLING AND
-   NOT KINETO_BACKEND STREQUAL "cuda")
+if(KINETO_ENABLE_MUPTI_PM_SAMPLING AND
+   NOT KINETO_BACKEND STREQUAL "musa")
   message(FATAL_ERROR
-    "KINETO_ENABLE_CUPTI_PM_SAMPLING requires KINETO_BACKEND=cuda.")
+    "KINETO_ENABLE_MUPTI_PM_SAMPLING requires KINETO_BACKEND=musa.")
 endif()
 
 if(NOT _kineto_backend_explicit)
   message(WARNING
     "KINETO_BACKEND was not set; defaulting to 'cpu'. "
-    "Pass -DKINETO_BACKEND={cpu,cuda,rocm,xpu} explicitly to silence this warning.")
+    "Pass -DKINETO_BACKEND={cpu,musa,rocm,xpu} explicitly to silence this warning.")
 endif()
 unset(_kineto_backend_explicit)
 
 # Per-backend configure-time setup.
-if(KINETO_BACKEND STREQUAL "cuda")
-  # CUDA / CUPTI detection
-  find_package(CUDAToolkit REQUIRED)
-  # hwBufferAppendMode and KEEP_LATEST were added in CUDA 12.8
-  if(KINETO_ENABLE_CUPTI_PM_SAMPLING AND
-     CUDAToolkit_VERSION VERSION_LESS "12.8")
-    message(FATAL_ERROR
-      "KINETO_ENABLE_CUPTI_PM_SAMPLING requires CUDA >= 12.8; detected "
-      "CUDA ${CUDAToolkit_VERSION}.")
+if(KINETO_BACKEND STREQUAL "musa")
+  set(MUSA_SOURCE_DIR "$ENV{MUSA_HOME}" CACHE PATH "MUSA toolkit root")
+  if(NOT MUSA_SOURCE_DIR)
+    set(MUSA_SOURCE_DIR "/usr/local/musa")
   endif()
-  if(NOT TARGET CUDA::cupti)
-    message(FATAL_ERROR
-      "KINETO_BACKEND=cuda but CUPTI was not found. "
-      "Install the CUDA Toolkit with CUPTI, set CUDAToolkit_ROOT, "
-      "or set KINETO_BACKEND=cpu.")
-  endif()
-  message(STATUS "Found CUPTI")
+  find_path(MUPTI_INCLUDE_DIR mupti.h
+    PATHS ${MUSA_SOURCE_DIR}/include REQUIRED NO_DEFAULT_PATH)
+  find_library(MUPTI_LIBRARY NAMES mupti libmupti.so.1
+    HINTS ${MUSA_SOURCE_DIR}/lib REQUIRED NO_DEFAULT_PATH)
+  find_library(MUSART_LIBRARY NAMES musart
+    HINTS ${MUSA_SOURCE_DIR}/lib REQUIRED NO_DEFAULT_PATH)
+  message(STATUS "Found MUPTI: ${MUPTI_LIBRARY}")
 elseif(KINETO_BACKEND STREQUAL "rocm")
   # ROCm prerequisites and version detection
   if(NOT ROCM_SOURCE_DIR)
@@ -177,13 +172,13 @@ endif()
 if(KINETO_BACKEND STREQUAL "cpu")
   get_filelist("get_libkineto_cpu_only_srcs(with_api=False)" LIBKINETO_SRCS)
   message(STATUS " Building CPU-only profilers")
-elseif(KINETO_BACKEND STREQUAL "cuda")
-  get_filelist("get_libkineto_cupti_srcs(with_api=False)" LIBKINETO_SRCS)
-  if(KINETO_ENABLE_CUPTI_PM_SAMPLING)
-    get_filelist("get_libkineto_cupti_pm_sampling_srcs()" CUPTI_PM_SAMPLING_SRCS)
-    list(APPEND LIBKINETO_SRCS ${CUPTI_PM_SAMPLING_SRCS})
+elseif(KINETO_BACKEND STREQUAL "musa")
+  get_filelist("get_libkineto_mupti_srcs(with_api=False)" LIBKINETO_SRCS)
+  if(KINETO_ENABLE_MUPTI_PM_SAMPLING)
+    get_filelist("get_libkineto_mupti_pm_sampling_srcs()" MUPTI_PM_SAMPLING_SRCS)
+    list(APPEND LIBKINETO_SRCS ${MUPTI_PM_SAMPLING_SRCS})
   endif()
-  message(STATUS " Building with cupti")
+  message(STATUS " Building with mupti")
 elseif(KINETO_BACKEND STREQUAL "rocm")
   get_filelist("get_libkineto_rocprofiler_srcs(with_api=False)" LIBKINETO_SRCS)
   message(STATUS " Building with rocprofiler-sdk")
@@ -203,15 +198,15 @@ add_dependencies(kineto_base libkineto_defs.bzl)
 
 set(KINETO_DEFINITIONS "KINETO_NAMESPACE=libkineto")
 list(APPEND KINETO_DEFINITIONS "ENABLE_IPC_FABRIC")
-if(KINETO_ENABLE_CUPTI_PM_SAMPLING)
-  list(APPEND KINETO_DEFINITIONS "HAS_CUPTI_PM_SAMPLING")
+if(KINETO_ENABLE_MUPTI_PM_SAMPLING)
+  list(APPEND KINETO_DEFINITIONS "HAS_MUPTI_PM_SAMPLING")
 endif()
 set(KINETO_COMPILE_OPTIONS)
 if(MSVC)
   list(APPEND KINETO_COMPILE_OPTIONS "/utf-8")
 endif()
-if(KINETO_BACKEND STREQUAL "cuda")
-  list(APPEND KINETO_DEFINITIONS "HAS_CUPTI")
+if(KINETO_BACKEND STREQUAL "musa")
+  list(APPEND KINETO_DEFINITIONS "HAS_MUPTI")
 elseif(KINETO_BACKEND STREQUAL "rocm")
   list(APPEND KINETO_DEFINITIONS "HAS_ROCTRACER")
   target_compile_definitions(kineto_base PRIVATE "__HIP_PLATFORM_HCC__")
@@ -289,7 +284,7 @@ if(BUILD_SHARED_LIBS)
 endif()
 
 # Strict, pedantic compilation with warnings-as-errors.
-# Only enabled for platforms covered by Kineto's CI (CPU-only, CUDA, ROCm on
+# Only enabled for platforms covered by Kineto's CI (CPU-only, MUSA, ROCm on
 # Linux). Disabled for Windows, macOS, and XPU builds which lack CI coverage.
 if(NOT WIN32 AND NOT APPLE AND NOT KINETO_BACKEND STREQUAL "xpu")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Werror")
@@ -310,9 +305,10 @@ target_include_directories(kineto PUBLIC
 # AND `kineto` (the wrapper library, so downstream consumers link the
 # dependency). This dual-attach is required because $<TARGET_OBJECTS:> does
 # not propagate INTERFACE properties from kineto_base to kineto.
-if(KINETO_BACKEND STREQUAL "cuda")
-  target_link_libraries(kineto PUBLIC CUDA::cupti CUDA::cudart)
-  target_link_libraries(kineto_base PUBLIC CUDA::cupti CUDA::cudart)
+if(KINETO_BACKEND STREQUAL "musa")
+  target_include_directories(kineto_base SYSTEM PUBLIC ${MUPTI_INCLUDE_DIR})
+  target_link_libraries(kineto PUBLIC ${MUPTI_LIBRARY} ${MUSART_LIBRARY})
+  target_link_libraries(kineto_base PUBLIC ${MUPTI_LIBRARY} ${MUSART_LIBRARY})
 elseif(KINETO_BACKEND STREQUAL "rocm")
   target_include_directories(kineto_base SYSTEM PUBLIC
         $<BUILD_INTERFACE:${ROCM_INCLUDE_DIRS}>)

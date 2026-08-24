@@ -8,20 +8,20 @@
 
 #pragma once
 
-#include <cupti.h>
+#include <mupti.h>
 #include <mutex>
-#include "CuptiActivity.h"
-#include "CuptiActivityApi.h"
+#include "MuptiActivity.h"
+#include "MuptiActivityApi.h"
 #include "GenericActivityProfiler.h"
 
 namespace KINETO_NAMESPACE {
 
-class CuptiActivityProfiler : public GenericActivityProfiler {
+class MuptiActivityProfiler : public GenericActivityProfiler {
  public:
-  CuptiActivityProfiler(CuptiActivityApi& cupti, bool cpuOnly);
-  CuptiActivityProfiler(const CuptiActivityProfiler&) = delete;
-  CuptiActivityProfiler& operator=(const CuptiActivityProfiler&) = delete;
-  ~CuptiActivityProfiler() override = default;
+  MuptiActivityProfiler(MuptiActivityApi& mupti, bool cpuOnly);
+  MuptiActivityProfiler(const MuptiActivityProfiler&) = delete;
+  MuptiActivityProfiler& operator=(const MuptiActivityProfiler&) = delete;
+  ~MuptiActivityProfiler() override = default;
 
  protected:
   void setMaxGpuBufferSize(int64_t size) override;
@@ -37,41 +37,41 @@ class CuptiActivityProfiler : public GenericActivityProfiler {
   void onFinalizeTrace(const Config& config, ActivityLogger& logger) override;
 
  private:
-  void buildProcessingState(CuptiActivityBufferMap& buffers);
-  // Process generic CUPTI activity
-  void handleCuptiActivity(
-      const CUpti_Activity* record,
+  void buildProcessingState(MuptiActivityBufferMap& buffers);
+  // Process generic MUPTI activity
+  void handleMuptiActivity(
+      const MUpti_Activity* record,
       ActivityLogger* logger);
   // Process specific GPU activity types
   void handleCorrelationActivity(
-      const CUpti_ActivityExternalCorrelation* correlation);
+      const MUpti_ActivityExternalCorrelation* correlation);
   void handleRuntimeActivity(
-      const CUpti_ActivityAPI* activity,
+      const MUpti_ActivityAPI* activity,
       ActivityLogger* logger);
   void handleDriverActivity(
-      const CUpti_ActivityAPI* activity,
+      const MUpti_ActivityAPI* activity,
       ActivityLogger* logger);
   void handleOverheadActivity(
-      const CUpti_ActivityOverhead* activity,
+      const MUpti_ActivityOverhead* activity,
       ActivityLogger* logger);
-  void handleCudaEventActivity(
-      const CUpti_ActivityCudaEventType* activity,
+  void handleMusaEventActivity(
+      const MUpti_ActivityMusaEventType* activity,
       ActivityLogger* logger);
-  void handleCudaSyncActivity(
-      const CUpti_ActivitySynchronization* activity,
+  void handleMusaSyncActivity(
+      const MUpti_ActivitySynchronization* activity,
       ActivityLogger* logger);
   template <class T>
   void handleGpuActivity(const T* act, ActivityLogger* logger);
   void logDeferredEvents();
-  void recordGpuVersions(uint32_t cuptiVersion);
+  void recordGpuVersions(uint32_t muptiVersion);
 
-  // Defer the CUDA/CUPTI probe until tracing starts, after any worker fork.
+  // Defer the MUSA/MUPTI probe until tracing starts, after any worker fork.
   // Cache the result because an unavailable backend stays CPU-only.
-  std::once_flag cuptiInitializationOnce_;
-  bool cuptiAvailable_{false};
+  std::once_flag muptiInitializationOnce_;
+  bool muptiAvailable_{false};
 
-  // Calls to CUPTI is encapsulated behind this interface
-  CuptiActivityApi& cupti_;
+  // Calls to MUPTI is encapsulated behind this interface
+  MuptiActivityApi& mupti_;
 };
 
 // Helper function to map context ID to device ID

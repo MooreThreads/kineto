@@ -43,8 +43,8 @@ void RocmActivityProfiler::logGpuVersions() {
   std::string rocprofVersion =
       std::to_string(majorVersion) + "." + std::to_string(minorVersion);
   int hipRuntimeVersion = 0, hipDriverVersion = 0;
-  CUDA_CALL(hipRuntimeGetVersion(&hipRuntimeVersion));
-  CUDA_CALL(hipDriverGetVersion(&hipDriverVersion));
+  MUSA_CALL(hipRuntimeGetVersion(&hipRuntimeVersion));
+  MUSA_CALL(hipDriverGetVersion(&hipDriverVersion));
   LOG(INFO) << "HIP versions. Rocprofiler-sdk: " << rocprofVersion
             << "; Runtime: " << hipRuntimeVersion
             << "; Driver: " << hipDriverVersion;
@@ -82,7 +82,7 @@ bool RocmActivityProfiler::isGpuCollectionStopped() const {
 }
 
 void RocmActivityProfiler::synchronizeGpuDevice() {
-  CUDA_CALL(hipDeviceSynchronize());
+  MUSA_CALL(hipDeviceSynchronize());
   roc_.flushActivities();
 }
 
@@ -204,7 +204,7 @@ void RocmActivityProfiler::handleRocprofActivity(
     case ROCTRACER_ACTIVITY_NONE:
     default:
       LOG(WARNING) << "Unexpected activity type: " << record->type;
-      ecs_.unexepected_cuda_events++;
+      ecs_.unexepected_musa_events++;
       break;
   }
 }

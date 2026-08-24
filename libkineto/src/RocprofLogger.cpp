@@ -507,7 +507,7 @@ void RocprofLogger::popCorrelationID(CorrelationDomain type) {
 }
 
 void RocprofLogger::clearLogs() {
-  // CuptiActivityProfiler clears this before the output Loggers use the data
+  // MuptiActivityProfiler clears this before the output Loggers use the data
   // for (auto &row : rows_)
   //  delete row;
   rows_.clear();

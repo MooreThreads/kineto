@@ -380,13 +380,13 @@ void XpuptiActivityProfilerSession::handleCommunicationActivity(
 }
 
 namespace {
-// Map a PTI overhead kind to a human-readable name aligned with CUPTI's
-// overheadKindString() (see cupti_strings.cpp), so XPU and CUDA traces use the
+// Map a PTI overhead kind to a human-readable name aligned with MUPTI's
+// overheadKindString() (see mupti_strings.cpp), so XPU and MUSA traces use the
 // same vocabulary. PTI's own ptiViewOverheadKindToString() returns raw enum
-// spellings (e.g. "BUFFER_FLUSH", "BUFFER_TIME") which do not match CUDA.
+// spellings (e.g. "BUFFER_FLUSH", "BUFFER_TIME") which do not match MUSA.
 // PTI_VIEW_OVERHEAD_KIND_TIME aggregates the time PTI spends inside
 // the Level Zero calls it injects to instrument the workload,
-// which is the same notion as CUPTI's "Instrumentation" overhead.
+// which is the same notion as MUPTI's "Instrumentation" overhead.
 const char* overheadKindString(pti_view_overhead_kind kind) {
   switch (kind) {
     case PTI_VIEW_OVERHEAD_KIND_UNKNOWN:

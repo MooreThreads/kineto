@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <cupti.h>
+#include <mupti.h>
 #include <array>
 #include <atomic>
 #include <list>
@@ -18,13 +18,13 @@
 
 // TODO(T90238193)
 // @lint-ignore-every CLANGTIDY facebook-hte-RelativeInclude
-#include "CuptiCallbackApiMock.h"
+#include "MuptiCallbackApiMock.h"
 
 namespace KINETO_NAMESPACE {
 
 using namespace libkineto;
 
-/* CuptiCallbackApi : Provides an abstraction over CUPTI callback
+/* MuptiCallbackApi : Provides an abstraction over MUPTI callback
  *  interface. This enables various callback functions to be registered
  *  with this class. The class registers a global callback handler that
  *  redirects to the respective callbacks.
@@ -33,21 +33,21 @@ using namespace libkineto;
  *  in order to speed up the implementation for fast path.
  */
 
-using CuptiCallbackFn = void (*)(
-    CUpti_CallbackDomain domain,
-    CUpti_CallbackId cbid,
-    const CUpti_CallbackData* cbInfo);
+using MuptiCallbackFn = void (*)(
+    MUpti_CallbackDomain domain,
+    MUpti_CallbackId cbid,
+    const MUpti_CallbackData* cbInfo);
 
-class CuptiCallbackApi {
+class MuptiCallbackApi {
  public:
   /* Global list of supported callback ids
-   *  use the class namespace to avoid confusing with CUPTI enums*/
-  enum class CuptiCallBackID : int {
-    CUDA_LAUNCH_KERNEL = 0,
+   *  use the class namespace to avoid confusing with MUPTI enums*/
+  enum class MuptiCallBackID : int {
+    MUSA_LAUNCH_KERNEL = 0,
     // can possibly support more callback ids per domain
     //
-    __RUNTIME_CB_DOMAIN_START = CUDA_LAUNCH_KERNEL,
-    CUDA_LAUNCH_KERNEL_EXC, // Used in H100
+    __RUNTIME_CB_DOMAIN_START = MUSA_LAUNCH_KERNEL,
+    MUSA_LAUNCH_KERNEL_EXC, // Used in H100
 
     // Callbacks under Resource CB domain
     RESOURCE_CONTEXT_CREATED,
@@ -59,11 +59,11 @@ class CuptiCallbackApi {
     __RESOURCE_CB_DOMAIN_END = RESOURCE_CONTEXT_DESTROYED + 1,
   };
 
-  CuptiCallbackApi() = default;
-  CuptiCallbackApi(const CuptiCallbackApi&) = delete;
-  CuptiCallbackApi& operator=(const CuptiCallbackApi&) = delete;
+  MuptiCallbackApi() = default;
+  MuptiCallbackApi(const MuptiCallbackApi&) = delete;
+  MuptiCallbackApi& operator=(const MuptiCallbackApi&) = delete;
 
-  static CuptiCallbackApi& singleton();
+  static MuptiCallbackApi& singleton();
 
   void initCallbackApi();
 
@@ -71,49 +71,49 @@ class CuptiCallbackApi {
     return initSuccess_;
   }
 
-  CUptiResult getCuptiStatus() const {
-    return lastCuptiStatus_;
+  MUptiResult getMuptiStatus() const {
+    return lastMuptiStatus_;
   }
 
-  CUpti_SubscriberHandle getCuptiSubscriber() const {
+  MUpti_SubscriberHandle getMuptiSubscriber() const {
     return subscriber_;
   }
 
   bool registerCallback(
-      CUpti_CallbackDomain domain,
-      CuptiCallBackID cbid,
-      CuptiCallbackFn cbfn);
+      MUpti_CallbackDomain domain,
+      MuptiCallBackID cbid,
+      MuptiCallbackFn cbfn);
 
   // returns false if callback was not found
   bool deleteCallback(
-      CUpti_CallbackDomain domain,
-      CuptiCallBackID cbid,
-      CuptiCallbackFn cbfn);
+      MUpti_CallbackDomain domain,
+      MuptiCallBackID cbid,
+      MuptiCallbackFn cbfn);
 
-  // Cupti Callback may be enable for domain and cbid pairs, or domains alone.
-  bool enableCallback(CUpti_CallbackDomain domain, CUpti_CallbackId cbid);
-  bool disableCallback(CUpti_CallbackDomain domain, CUpti_CallbackId cbid);
-  bool enableCallbackDomain(CUpti_CallbackDomain domain);
-  bool disableCallbackDomain(CUpti_CallbackDomain domain);
-  // Provide this API for when cuptiFinalize is executed, to allow the process
+  // Mupti Callback may be enable for domain and cbid pairs, or domains alone.
+  bool enableCallback(MUpti_CallbackDomain domain, MUpti_CallbackId cbid);
+  bool disableCallback(MUpti_CallbackDomain domain, MUpti_CallbackId cbid);
+  bool enableCallbackDomain(MUpti_CallbackDomain domain);
+  bool disableCallbackDomain(MUpti_CallbackDomain domain);
+  // Provide this API for when muptiFinalize is executed, to allow the process
   // to re-enabled all previously running callback subscriptions.
   bool reenableCallbacks();
 
   // Please do not use this method. This has to be exposed as public
   // so it is accessible from the callback handler
   void __callback_switchboard(
-      CUpti_CallbackDomain domain,
-      CUpti_CallbackId cbid,
-      const CUpti_CallbackData* cbInfo);
+      MUpti_CallbackDomain domain,
+      MUpti_CallbackId cbid,
+      const MUpti_CallbackData* cbInfo);
 
  private:
   // For callback table design overview see the .cpp file
-  using CallbackList = std::list<CuptiCallbackFn>;
+  using CallbackList = std::list<MuptiCallbackFn>;
 
   // Computing the slot of the callback id within its domain's table.
   static constexpr size_t domainIndex(
-      CuptiCallBackID cbid,
-      CuptiCallBackID domainStart) {
+      MuptiCallBackID cbid,
+      MuptiCallBackID domainStart) {
     return static_cast<size_t>(cbid) - static_cast<size_t>(domainStart);
   }
 
@@ -121,35 +121,35 @@ class CuptiCallbackApi {
   // via domainIndex(): an inline member function isn't yet usable in a
   // constexpr member initializer within the same class definition.
   constexpr static size_t RUNTIME_CB_DOMAIN_SIZE =
-      static_cast<size_t>(CuptiCallBackID::__RUNTIME_CB_DOMAIN_END) -
-      static_cast<size_t>(CuptiCallBackID::__RUNTIME_CB_DOMAIN_START);
+      static_cast<size_t>(MuptiCallBackID::__RUNTIME_CB_DOMAIN_END) -
+      static_cast<size_t>(MuptiCallBackID::__RUNTIME_CB_DOMAIN_START);
 
   constexpr static size_t RESOURCE_CB_DOMAIN_SIZE =
-      static_cast<size_t>(CuptiCallBackID::__RESOURCE_CB_DOMAIN_END) -
-      static_cast<size_t>(CuptiCallBackID::__RESOURCE_CB_DOMAIN_START);
+      static_cast<size_t>(MuptiCallBackID::__RESOURCE_CB_DOMAIN_END) -
+      static_cast<size_t>(MuptiCallBackID::__RESOURCE_CB_DOMAIN_START);
 
   // level 1 table is a struct
   struct CallbackTable {
     std::array<CallbackList, RUNTIME_CB_DOMAIN_SIZE> runtime;
     std::array<CallbackList, RESOURCE_CB_DOMAIN_SIZE> resource;
 
-    CallbackList* lookup(CUpti_CallbackDomain domain, CuptiCallBackID cbid);
+    CallbackList* lookup(MUpti_CallbackDomain domain, MuptiCallBackID cbid);
   };
 
   CallbackTable callbacks_;
   bool initSuccess_ = false;
   // Record a list of enabled callbacks, so that after teardown, we can
-  // re-enable the callbacks that were turned off to clean cupti context. As an
+  // re-enable the callbacks that were turned off to clean mupti context. As an
   // implementation detail, cbid == 0xffffffff means enable the domain.
-  std::set<std::pair<CUpti_CallbackDomain, CUpti_CallbackId>> enabledCallbacks_;
+  std::set<std::pair<MUpti_CallbackDomain, MUpti_CallbackId>> enabledCallbacks_;
 
   // Reader Writer lock types
   using ReaderWriterLock = std::shared_timed_mutex;
   using ReaderLockGuard = std::shared_lock<ReaderWriterLock>;
   using WriteLockGuard = std::unique_lock<ReaderWriterLock>;
   ReaderWriterLock callbackLock_;
-  CUptiResult lastCuptiStatus_;
-  CUpti_SubscriberHandle subscriber_{nullptr};
+  MUptiResult lastMuptiStatus_;
+  MUpti_SubscriberHandle subscriber_{nullptr};
 };
 
 } // namespace KINETO_NAMESPACE

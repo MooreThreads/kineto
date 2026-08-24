@@ -89,10 +89,10 @@ TEST(ParseTest, ActivityTypes) {
            ActivityType::CONCURRENT_KERNEL,
            ActivityType::EXTERNAL_CORRELATION,
            ActivityType::OVERHEAD,
-           ActivityType::CUDA_RUNTIME,
-           ActivityType::CUDA_DRIVER,
-           ActivityType::CUDA_SYNC,
-           ActivityType::CUDA_EVENT,
+           ActivityType::PRIVATEUSE1_RUNTIME,
+           ActivityType::PRIVATEUSE1_DRIVER,
+           ActivityType::MUSA_SYNC,
+           ActivityType::MUSA_EVENT,
            ActivityType::MTIA_RUNTIME,
            ActivityType::MTIA_INSIGHT,
            ActivityType::MTIA_CCP_EVENTS,
@@ -107,13 +107,13 @@ TEST(ParseTest, ActivityTypes) {
            ActivityType::GPU_MEMSET,
            ActivityType::CONCURRENT_KERNEL}));
 
-  EXPECT_TRUE(cfg2.parse("ACTIVITY_TYPES = cuda_Runtime,"));
+  EXPECT_TRUE(cfg2.parse("ACTIVITY_TYPES = musa_Runtime,"));
   EXPECT_EQ(
       cfg2.selectedActivityTypes(),
-      std::set<ActivityType>({ActivityType::CUDA_RUNTIME}));
+      std::set<ActivityType>({ActivityType::PRIVATEUSE1_RUNTIME}));
 
   // parse() returns false for an unknown activity name
-  EXPECT_FALSE(cfg2.parse("ACTIVITY_TYPES = memcopy,cuda_runtime"));
+  EXPECT_FALSE(cfg2.parse("ACTIVITY_TYPES = memcopy,musa_runtime"));
 
   EXPECT_TRUE(cfg2.parse("ACTIVITY_TYPES = cpu_op"));
   EXPECT_EQ(

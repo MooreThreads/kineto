@@ -244,7 +244,7 @@ class GenericActivityProfiler {
   inline void recordThreadInfo() {
     int32_t sysTid = systemThreadId();
     // Note we're using the lower 32 bits of the (opaque) pthread id
-    // as key, because that's what CUPTI records.
+    // as key, because that's what MUPTI records.
     int32_t tid = threadId();
     int32_t pid = processId();
     std::lock_guard<std::recursive_mutex> guard(mutex_);
@@ -311,7 +311,7 @@ class GenericActivityProfiler {
   using CpuGpuSpanPair = std::pair<TraceSpan, TraceSpan>;
   static const CpuGpuSpanPair& defaultTraceSpan();
 
-  // Deferred logging of CUDA-event synchronization
+  // Deferred logging of MUSA-event synchronization
   struct DeferredLogEntry {
     uint32_t device;
     uint32_t stream;
@@ -349,15 +349,15 @@ class GenericActivityProfiler {
   GpuUserEventMap gpuUserEventMap_;
   // id -> activity*
   std::unordered_map<int64_t, const ITraceActivity*> activityMap_;
-  // cuda runtime id -> pytorch op id
-  // CUPTI provides a mechanism for correlating Cuda events to arbitrary
+  // musa runtime id -> pytorch op id
+  // MUPTI provides a mechanism for correlating Musa events to arbitrary
   // external events, e.g.operator activities from PyTorch.
   std::unordered_map<int64_t, int64_t> cpuCorrelationMap_;
-  // CUDA runtime <-> GPU Activity
-  std::unordered_map<int64_t, const ITraceActivity*> correlatedCudaActivities_;
+  // MUSA runtime <-> GPU Activity
+  std::unordered_map<int64_t, const ITraceActivity*> correlatedMusaActivities_;
   std::unordered_map<int64_t, int64_t> userCorrelationMap_;
 
-  // data structure to collect cuptiActivityFlushAll() latency overhead
+  // data structure to collect muptiActivityFlushAll() latency overhead
   struct profilerOverhead {
     int64_t overhead;
     int cntr;
@@ -502,9 +502,9 @@ class GenericActivityProfiler {
 
   // Keep track of the start time and end time for the trace collected.
   // External threads using startTrace need to manually stopTrace. Part of the
-  // mock tests. All CUDA events before this time will be removed
+  // mock tests. All MUSA events before this time will be removed
   int64_t captureWindowStartTime_{0};
-  // Similarly, all CUDA API events after the last net event will be removed
+  // Similarly, all MUSA API events after the last net event will be removed
   int64_t captureWindowEndTime_{0};
 
   // span name -> iteration count
@@ -530,14 +530,14 @@ class GenericActivityProfiler {
     int32_t out_of_range_events = 0;
     int32_t gpu_and_cpu_op_out_of_order = 0;
     int32_t blocklisted_runtime_events = 0;
-    int32_t unexepected_cuda_events = 0;
+    int32_t unexepected_musa_events = 0;
     bool gpu_stopped_early = false;
   };
 
   friend std::ostream& operator<<(std::ostream& oss, const ErrorCounts& ecs);
 
-  // This set tracks the (device, cuda streams) observed in the trace
-  // doing CUDA kernels/memcopies. This prevents emitting CUDA sync
+  // This set tracks the (device, musa streams) observed in the trace
+  // doing MUSA kernels/memcopies. This prevents emitting MUSA sync
   // events on streams with no activity.
   std::unordered_set<DevStream, DevStreamHash> seenDeviceStreams_;
 

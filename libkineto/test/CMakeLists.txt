@@ -114,53 +114,53 @@ if(NOT WIN32)
     gtest_discover_tests(GenericActivityProfilerTeardownTest)
 endif()
 
-if(KINETO_BACKEND STREQUAL "cuda")
-# CuptiActivityProfilerTest
-add_executable(CuptiActivityProfilerTest
-    CuptiActivityProfilerTest.cpp
+if(KINETO_BACKEND STREQUAL "musa")
+# MuptiActivityProfilerTest
+add_executable(MuptiActivityProfilerTest
+    MuptiActivityProfilerTest.cpp
     MockActivitySubProfiler.cpp
     MockCpuActivityBuffer.cpp
     TestUtils.cpp)
-target_link_libraries(CuptiActivityProfilerTest PRIVATE
+target_link_libraries(MuptiActivityProfilerTest PRIVATE
     gtest_main
     gmock
     kineto_base kineto_api
     nlohmann_json::nlohmann_json)
-target_include_directories(CuptiActivityProfilerTest PRIVATE
+target_include_directories(MuptiActivityProfilerTest PRIVATE
     "${LIBKINETO_DIR}"
     "${LIBKINETO_DIR}/include"
     "${LIBKINETO_DIR}/src"
-    "${CUDA_SOURCE_DIR}/include"
-    "${CUPTI_INCLUDE_DIR}")
-gtest_discover_tests(CuptiActivityProfilerTest)
+    "${MUSA_SOURCE_DIR}/include"
+    "${MUPTI_INCLUDE_DIR}")
+gtest_discover_tests(MuptiActivityProfilerTest)
 
-if(KINETO_ENABLE_CUPTI_PM_SAMPLING)
-# CuptiPMSamplingProfilerTest
-add_executable(CuptiPMSamplingProfilerTest
-    CuptiPMSamplingProfilerTest.cpp)
-target_link_libraries(CuptiPMSamplingProfilerTest PRIVATE
+if(KINETO_ENABLE_MUPTI_PM_SAMPLING)
+# MuptiPMSamplingProfilerTest
+add_executable(MuptiPMSamplingProfilerTest
+    MuptiPMSamplingProfilerTest.cpp)
+target_link_libraries(MuptiPMSamplingProfilerTest PRIVATE
     gtest_main
     kineto_base kineto_api)
-target_include_directories(CuptiPMSamplingProfilerTest PRIVATE
+target_include_directories(MuptiPMSamplingProfilerTest PRIVATE
     "${LIBKINETO_DIR}"
     "${LIBKINETO_DIR}/include"
     "${LIBKINETO_DIR}/src")
-gtest_discover_tests(CuptiPMSamplingProfilerTest)
+gtest_discover_tests(MuptiPMSamplingProfilerTest)
 endif()
 
-# CuptiCallbackApiTest
-add_executable(CuptiCallbackApiTest CuptiCallbackApiTest.cpp)
-target_link_libraries(CuptiCallbackApiTest PRIVATE
+# MuptiCallbackApiTest
+add_executable(MuptiCallbackApiTest MuptiCallbackApiTest.cpp)
+target_link_libraries(MuptiCallbackApiTest PRIVATE
     gtest_main
     kineto_base kineto_api)
-gtest_discover_tests(CuptiCallbackApiTest)
+gtest_discover_tests(MuptiCallbackApiTest)
 
-# CuptiStringsTest
-add_executable(CuptiStringsTest CuptiStringsTest.cpp)
-target_link_libraries(CuptiStringsTest PRIVATE
+# MuptiStringsTest
+add_executable(MuptiStringsTest MuptiStringsTest.cpp)
+target_link_libraries(MuptiStringsTest PRIVATE
     gtest_main
     kineto_base kineto_api)
-gtest_discover_tests(CuptiStringsTest)
+gtest_discover_tests(MuptiStringsTest)
 
 # DevicePropertiesTest
 add_executable(DevicePropertiesTest DevicePropertiesTest.cpp)

@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-#include <cupti_activity.h>
+#include <mupti_activity.h>
 #include <libkineto.h>
 #include <unistd.h>
 
@@ -31,14 +31,14 @@ using namespace kineto_stress_test;
 void trace_collection_thread(
     uint32_t trace_delay_us,
     uint32_t trace_length_us,
-    uint32_t cupti_buffer_mb) {
-  if (cupti_buffer_mb > 0) {
-    // Configure CUPTI buffer sizes
+    uint32_t mupti_buffer_mb) {
+  if (mupti_buffer_mb > 0) {
+    // Configure MUPTI buffer sizes
     size_t attrValue = 0;
     size_t attrValueSize = sizeof(size_t);
-    attrValue = (size_t)(cupti_buffer_mb * 1024 * 1024);
-    cuptiActivitySetAttribute(
-        CUPTI_ACTIVITY_ATTR_DEVICE_BUFFER_SIZE, &attrValueSize, &attrValue);
+    attrValue = (size_t)(mupti_buffer_mb * 1024 * 1024);
+    muptiActivitySetAttribute(
+        MUPTI_ACTIVITY_ATTR_DEVICE_BUFFER_SIZE, &attrValueSize, &attrValue);
   }
 
   // Config Kineto
@@ -46,7 +46,7 @@ void trace_collection_thread(
       libkineto::ActivityType::CONCURRENT_KERNEL,
       libkineto::ActivityType::GPU_MEMCPY,
       libkineto::ActivityType::GPU_MEMSET,
-      libkineto::ActivityType::CUDA_RUNTIME,
+      libkineto::ActivityType::PRIVATEUSE1_RUNTIME,
       libkineto::ActivityType::EXTERNAL_CORRELATION,
       libkineto::ActivityType::OVERHEAD,
       libkineto::ActivityType::COLLECTIVE_COMM};
@@ -75,41 +75,41 @@ void uvm_allocation_thread(stress_test_args* test_args) {
   std::cout << "UVM is used. Allocation size (MB) = "
             << 2 * alloc_size / (1024 * 1024) << std::endl;
   int currentDevice = 0;
-  checkCudaStatus(cudaGetDevice(&currentDevice), __LINE__);
-  checkCudaStatus(
-      cudaMallocManaged(
-          (void**)&test_args->uvm_a, alloc_size, cudaMemAttachGlobal),
+  checkMusaStatus(musaGetDevice(&currentDevice), __LINE__);
+  checkMusaStatus(
+      musaMallocManaged(
+          (void**)&test_args->uvm_a, alloc_size, musaMemAttachGlobal),
       __LINE__);
-  checkCudaStatus(
-      cudaMallocManaged(
-          (void**)&test_args->uvm_b, alloc_size, cudaMemAttachGlobal),
+  checkMusaStatus(
+      musaMallocManaged(
+          (void**)&test_args->uvm_b, alloc_size, musaMemAttachGlobal),
       __LINE__);
-  checkCudaStatus(
-      cudaMemAdvise(
+  checkMusaStatus(
+      musaMemAdvise(
           (void*)test_args->uvm_a,
           alloc_size,
-          cudaMemAdviseSetPreferredLocation,
-          cudaCpuDeviceId),
+          musaMemAdviseSetPreferredLocation,
+          musaCpuDeviceId),
       __LINE__);
-  checkCudaStatus(
-      cudaMemAdvise(
+  checkMusaStatus(
+      musaMemAdvise(
           (void*)test_args->uvm_b,
           alloc_size,
-          cudaMemAdviseSetPreferredLocation,
-          cudaCpuDeviceId),
+          musaMemAdviseSetPreferredLocation,
+          musaCpuDeviceId),
       __LINE__);
-  checkCudaStatus(
-      cudaMemAdvise(
+  checkMusaStatus(
+      musaMemAdvise(
           (void*)test_args->uvm_a,
           alloc_size,
-          cudaMemAdviseSetAccessedBy,
+          musaMemAdviseSetAccessedBy,
           currentDevice),
       __LINE__);
-  checkCudaStatus(
-      cudaMemAdvise(
+  checkMusaStatus(
+      musaMemAdvise(
           (void*)test_args->uvm_b,
           alloc_size,
-          cudaMemAdviseSetAccessedBy,
+          musaMemAdviseSetAccessedBy,
           currentDevice),
       __LINE__);
   std::cout << "UVM buffers allocated. Initializing them with values."
@@ -146,39 +146,39 @@ void run_parallel_stress_test(stress_test_args test_args) {
   }
 }
 
-void create_cuda_streams(stress_test_args& test_args) {
-  test_args.compute_streams = (cudaStream_t*)malloc(
-      test_args.num_cuda_streams * test_args.num_workers *
-      sizeof(cudaStream_t));
-  for (uint32_t i = 0; i < test_args.num_cuda_streams * test_args.num_workers;
+void create_musa_streams(stress_test_args& test_args) {
+  test_args.compute_streams = (musaStream_t*)malloc(
+      test_args.num_musa_streams * test_args.num_workers *
+      sizeof(musaStream_t));
+  for (uint32_t i = 0; i < test_args.num_musa_streams * test_args.num_workers;
        ++i) {
-    checkCudaStatus(
-        cudaStreamCreateWithFlags(
-            test_args.compute_streams + i, cudaStreamNonBlocking),
+    checkMusaStatus(
+        musaStreamCreateWithFlags(
+            test_args.compute_streams + i, musaStreamNonBlocking),
         __LINE__);
   }
 
   if (test_args.use_memcpy_stream) {
     test_args.memcpy_streams =
-        (cudaStream_t*)malloc(test_args.num_workers * sizeof(cudaStream_t));
+        (musaStream_t*)malloc(test_args.num_workers * sizeof(musaStream_t));
     for (uint32_t i = 0; i < test_args.num_workers; ++i) {
-      // We want to test the effect of CUDA stream priorities on the order of
+      // We want to test the effect of MUSA stream priorities on the order of
       // memory transfers.
       if (i % 2 != 0) {
-        checkCudaStatus(
-            cudaStreamCreateWithFlags(
-                test_args.memcpy_streams + i, cudaStreamNonBlocking),
+        checkMusaStatus(
+            musaStreamCreateWithFlags(
+                test_args.memcpy_streams + i, musaStreamNonBlocking),
             __LINE__);
       } else {
         int leastPriority = 0;
         int greatestPriority = 0;
-        checkCudaStatus(
-            cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority),
+        checkMusaStatus(
+            musaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority),
             __LINE__);
-        checkCudaStatus(
-            cudaStreamCreateWithPriority(
+        checkMusaStatus(
+            musaStreamCreateWithPriority(
                 test_args.memcpy_streams + i,
-                cudaStreamNonBlocking,
+                musaStreamNonBlocking,
                 leastPriority),
             __LINE__);
       }
@@ -187,21 +187,21 @@ void create_cuda_streams(stress_test_args& test_args) {
 
   if (test_args.use_uvm_stream) {
     test_args.uvm_streams =
-        (cudaStream_t*)malloc(test_args.num_workers * sizeof(cudaStream_t));
+        (musaStream_t*)malloc(test_args.num_workers * sizeof(musaStream_t));
     for (uint32_t i = 0; i < test_args.num_workers; ++i) {
-      checkCudaStatus(
-          cudaStreamCreateWithFlags(
-              test_args.uvm_streams + i, cudaStreamNonBlocking),
+      checkMusaStatus(
+          musaStreamCreateWithFlags(
+              test_args.uvm_streams + i, musaStreamNonBlocking),
           __LINE__);
     }
   }
 }
 
-void cleanup_cuda_streams(stress_test_args& test_args) {
-  for (int i = 0; i < test_args.num_cuda_streams * test_args.num_workers; ++i) {
-    checkCudaStatus(
-        cudaStreamSynchronize(test_args.compute_streams[i]), __LINE__);
-    checkCudaStatus(cudaStreamDestroy(test_args.compute_streams[i]), __LINE__);
+void cleanup_musa_streams(stress_test_args& test_args) {
+  for (int i = 0; i < test_args.num_musa_streams * test_args.num_workers; ++i) {
+    checkMusaStatus(
+        musaStreamSynchronize(test_args.compute_streams[i]), __LINE__);
+    checkMusaStatus(musaStreamDestroy(test_args.compute_streams[i]), __LINE__);
   }
 
   if (test_args.compute_streams) {
@@ -210,9 +210,9 @@ void cleanup_cuda_streams(stress_test_args& test_args) {
 
   if (test_args.use_memcpy_stream) {
     for (int i = 0; std::cmp_less(i, test_args.num_workers); ++i) {
-      checkCudaStatus(
-          cudaStreamSynchronize(test_args.memcpy_streams[i]), __LINE__);
-      checkCudaStatus(cudaStreamDestroy(test_args.memcpy_streams[i]), __LINE__);
+      checkMusaStatus(
+          musaStreamSynchronize(test_args.memcpy_streams[i]), __LINE__);
+      checkMusaStatus(musaStreamDestroy(test_args.memcpy_streams[i]), __LINE__);
     }
 
     if (test_args.memcpy_streams) {
@@ -222,9 +222,9 @@ void cleanup_cuda_streams(stress_test_args& test_args) {
 
   if (test_args.use_uvm_stream) {
     for (int i = 0; std::cmp_less(i, test_args.num_workers); ++i) {
-      checkCudaStatus(
-          cudaStreamSynchronize(test_args.uvm_streams[i]), __LINE__);
-      checkCudaStatus(cudaStreamDestroy(test_args.uvm_streams[i]), __LINE__);
+      checkMusaStatus(
+          musaStreamSynchronize(test_args.uvm_streams[i]), __LINE__);
+      checkMusaStatus(musaStreamDestroy(test_args.uvm_streams[i]), __LINE__);
     }
 
     if (test_args.uvm_streams) {
@@ -278,7 +278,7 @@ int main(int argc, char* argv[]) {
 
   // Initialize multi-processing
   if (test_args.is_multi_rank) {
-    checkCudaStatus(cudaSetDevice(test_args.rank));
+    checkMusaStatus(musaSetDevice(test_args.rank));
 
     // Broadcast ID to other ranks
     if (test_args.rank == 0) {
@@ -293,24 +293,24 @@ int main(int argc, char* argv[]) {
         &nccl_communicator, test_args.num_ranks, nccl_id, test_args.rank));
 
     // Allocate memory for the buffers
-    checkCudaStatus(
-        cudaMalloc(&pBuffNCCLSend, test_args.sz_nccl_buff_KB * 1024), __LINE__);
-    checkCudaStatus(
-        cudaMalloc(&pBuffNCCLRecv, test_args.sz_nccl_buff_KB * 1024), __LINE__);
-    checkCudaStatus(
-        cudaMemset(pBuffNCCLSend, 0, test_args.sz_nccl_buff_KB * 1024),
+    checkMusaStatus(
+        musaMalloc(&pBuffNCCLSend, test_args.sz_nccl_buff_KB * 1024), __LINE__);
+    checkMusaStatus(
+        musaMalloc(&pBuffNCCLRecv, test_args.sz_nccl_buff_KB * 1024), __LINE__);
+    checkMusaStatus(
+        musaMemset(pBuffNCCLSend, 0, test_args.sz_nccl_buff_KB * 1024),
         __LINE__);
-    checkCudaStatus(
-        cudaMemset(pBuffNCCLRecv, 0, test_args.sz_nccl_buff_KB * 1024),
+    checkMusaStatus(
+        musaMemset(pBuffNCCLRecv, 0, test_args.sz_nccl_buff_KB * 1024),
         __LINE__);
 
     // Make sure all the processes have allocated this memory
     MPICHECK(MPI_Barrier(MPI_COMM_WORLD));
   }
 
-  // Pre-allocate CUDA streams
+  // Pre-allocate MUSA streams
   if (test_args.pre_alloc_streams) {
-    create_cuda_streams(test_args);
+    create_musa_streams(test_args);
   }
 
   std::thread uvm_init_thread;
@@ -391,7 +391,7 @@ int main(int argc, char* argv[]) {
           trace_collection_thread,
           test_args.trace_delay_us,
           test_args.trace_length_us,
-          test_args.cupti_buffer_mb);
+          test_args.mupti_buffer_mb);
       run_parallel_stress_test(test_args);
       kineto_thread.join();
       t_stop = clock();
@@ -432,9 +432,9 @@ int main(int argc, char* argv[]) {
     MPICHECK(MPI_Barrier(MPI_COMM_WORLD));
   }
 
-  // Destroy CUDA streams
+  // Destroy MUSA streams
   if (test_args.pre_alloc_streams) {
-    cleanup_cuda_streams(test_args);
+    cleanup_musa_streams(test_args);
   }
 
   // Free the tensor cache on the GPU
@@ -442,13 +442,13 @@ int main(int argc, char* argv[]) {
 
   // Free UVM
   if (test_args.use_uvm_buffers) {
-    checkCudaStatus(cudaFree(test_args.uvm_a), __LINE__);
-    checkCudaStatus(cudaFree(test_args.uvm_b), __LINE__);
+    checkMusaStatus(musaFree(test_args.uvm_a), __LINE__);
+    checkMusaStatus(musaFree(test_args.uvm_b), __LINE__);
   }
 
   if (test_args.is_multi_rank) {
-    checkCudaStatus(cudaFree(pBuffNCCLRecv));
-    checkCudaStatus(cudaFree(pBuffNCCLSend));
+    checkMusaStatus(musaFree(pBuffNCCLRecv));
+    checkMusaStatus(musaFree(pBuffNCCLSend));
     NCCLCHECK(ncclCommDestroy(nccl_communicator));
     MPICHECK(MPI_Finalize());
   }

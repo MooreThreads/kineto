@@ -73,7 +73,7 @@ class LoggerCollector : public ILoggerObserver {
  protected:
   std::map<LoggerOutputType, std::vector<std::string>> buckets_;
 
-  // These are useful metadata to collect from CUPTIActivityProfiler for
+  // These are useful metadata to collect from MUPTIActivityProfiler for
   // internal tracking.
   std::set<int64_t> devices;
   int64_t trace_duration_ms{0};

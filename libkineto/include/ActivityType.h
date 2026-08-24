@@ -29,17 +29,17 @@ enum class ActivityType {
   CUDA_DRIVER = 8, // host side cuda driver events
   CPU_INSTANT_EVENT = 9, // host side point-like events
   PYTHON_FUNCTION = 10,
-  OVERHEAD = 11, // CUPTI induced overhead events sampled from its overhead API.
+  OVERHEAD = 11, // MUPTI induced overhead events sampled from its overhead API.
   MTIA_RUNTIME = 12, // host side MTIA runtime events
   MTIA_CCP_EVENTS = 13, // MTIA ondevice CCP events
   MTIA_INSIGHT = 14, // MTIA Insight Events
   CUDA_SYNC = 15, // synchronization events between runtime and kernels
-  CUDA_EVENT = 16, // CUDA event activities (cudaEventRecord, etc.)
+  CUDA_EVENT = 16, // CUDA event activities (musaEventRecord, etc.)
   MTIA_COUNTERS = 17, // MTIA hardware counter events (HBM, cache, DPE, SFU)
 
   // Optional Activity types
   GLOW_RUNTIME = 18, // host side glow runtime events
-  // Reserved and no longer produced: the CUPTI range profiler that emitted this
+  // Reserved and no longer produced: the MUPTI range profiler that emitted this
   // activity was removed. The value stays fixed so existing traces and other
   // tools that share this serialized integer keep deserializing correctly.
   CUDA_PROFILER_RANGE = 19,
@@ -48,18 +48,17 @@ enum class ActivityType {
   XPU_DRIVER = 22, // host side xpu driver events
   COLLECTIVE_COMM = 23, // collective communication
 
-  // PRIVATEUSE1 Activity types are used for custom backends.
-  // The corresponding device type is `DeviceType::PrivateUse1` in PyTorch.
   PRIVATEUSE1_RUNTIME = 24, // host side privateUse1 runtime events
   PRIVATEUSE1_DRIVER = 25, // host side privateUse1 driver events
 
   XPU_SCOPE_PROFILER = 26, // XPUPTI Profiler scope for performance metrics
   XPU_SYNC = 27, // XPU synchronization events
   HARDWARE_COUNTERS =
-      28, // hardware performance counter samples. Only used by CUDA right now.
-
-  ENUM_COUNT =
-      29, // This is to add buffer and not used for any profiling logic. Add
+      28, // hardware performance counter samples. Only used by MUSA right now.
+  MUSA_PROFILER_RANGE = 29,
+  MUSA_SYNC = 30, // synchronization events between runtime and kernels
+  MUSA_EVENT = 31, // MUSA event activities (musaEventRecord, etc.)
+  ENUM_COUNT = 32, // This is to add buffer and not used for any profiling logic. Add
   // your new type before it.
   OPTIONAL_ACTIVITY_TYPE_START = GLOW_RUNTIME,
 };
@@ -103,11 +102,14 @@ inline constexpr std::array<_ActivityTypeName, activityTypeCount + 1>
         {"xpu_runtime", ActivityType::XPU_RUNTIME},
         {"xpu_driver", ActivityType::XPU_DRIVER},
         {"collective_comm", ActivityType::COLLECTIVE_COMM},
-        {"privateuse1_runtime", ActivityType::PRIVATEUSE1_RUNTIME},
-        {"privateuse1_driver", ActivityType::PRIVATEUSE1_DRIVER},
+        {"musa_runtime", ActivityType::PRIVATEUSE1_RUNTIME},
+        {"musa_driver", ActivityType::PRIVATEUSE1_DRIVER},
         {"xpu_scope_profiler", ActivityType::XPU_SCOPE_PROFILER},
         {"xpu_sync", ActivityType::XPU_SYNC},
         {"hardware_counters", ActivityType::HARDWARE_COUNTERS},
+        {"musa_profiler_range", ActivityType::MUSA_PROFILER_RANGE},
+        {"musa_sync", ActivityType::MUSA_SYNC},
+        {"musa_event", ActivityType::MUSA_EVENT},
         {"ENUM_COUNT", ActivityType::ENUM_COUNT},
     }};
 

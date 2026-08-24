@@ -20,15 +20,15 @@
 
 namespace KINETO_NAMESPACE {
 
-class CuptiActivityBuffer {
+class MuptiActivityBuffer {
  public:
-  explicit CuptiActivityBuffer(size_t size) : size_(size) {
+  explicit MuptiActivityBuffer(size_t size) : size_(size) {
     buf_.reserve(size);
   }
-  CuptiActivityBuffer() = delete;
-  CuptiActivityBuffer& operator=(const CuptiActivityBuffer&) = delete;
-  CuptiActivityBuffer(CuptiActivityBuffer&&) = default;
-  CuptiActivityBuffer& operator=(CuptiActivityBuffer&&) = default;
+  MuptiActivityBuffer() = delete;
+  MuptiActivityBuffer& operator=(const MuptiActivityBuffer&) = delete;
+  MuptiActivityBuffer(MuptiActivityBuffer&&) = default;
+  MuptiActivityBuffer& operator=(MuptiActivityBuffer&&) = default;
 
   [[nodiscard]] size_t size() const {
     return size_;
@@ -50,7 +50,7 @@ class CuptiActivityBuffer {
   std::vector<std::unique_ptr<const ITraceActivity>> wrappers_;
 };
 
-using CuptiActivityBufferMap =
-    std::map<uint8_t*, std::unique_ptr<CuptiActivityBuffer>>;
+using MuptiActivityBufferMap =
+    std::map<uint8_t*, std::unique_ptr<MuptiActivityBuffer>>;
 
 } // namespace KINETO_NAMESPACE

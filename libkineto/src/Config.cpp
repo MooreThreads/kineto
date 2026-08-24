@@ -43,17 +43,17 @@ constexpr int64_t kDefaultActivitiesMaxGpuBufferSize(128 * 1024 * 1024);
 constexpr seconds kDefaultActivitiesWarmupDurationSecs(5);
 constexpr seconds kMaxRequestAge(10);
 constexpr seconds kDefaultOnDemandConfigUpdateIntervalSecs(5);
-// 3200000 is the default value set by CUPTI
-constexpr size_t kDefaultCuptiDeviceBufferSize(3200000);
-// Default value set by CUPTI is 250
-constexpr size_t kDefaultCuptiDeviceBufferPoolLimit(20);
+// 3200000 is the default value set by MUPTI
+constexpr size_t kDefaultMuptiDeviceBufferSize(3200000);
+// Default value set by MUPTI is 250
+constexpr size_t kDefaultMuptiDeviceBufferPoolLimit(20);
 
 // Activity Profiler
 constexpr char kActivitiesEnabledKey[] = "ACTIVITIES_ENABLED";
-constexpr char kCuptiPerThreadBufferEnabledKey[] =
-    "CUPTI_PER_THREAD_BUFFER_ENABLED";
-constexpr char kCuptiPMSamplingMetricsKey[] = "CUPTI_PM_SAMPLING_METRICS";
-constexpr char kCuptiPMSamplingDeviceIdKey[] = "CUPTI_PM_SAMPLING_DEVICE_ID";
+constexpr char kMuptiPerThreadBufferEnabledKey[] =
+    "MUPTI_PER_THREAD_BUFFER_ENABLED";
+constexpr char kMuptiPMSamplingMetricsKey[] = "MUPTI_PM_SAMPLING_METRICS";
+constexpr char kMuptiPMSamplingDeviceIdKey[] = "MUPTI_PM_SAMPLING_DEVICE_ID";
 constexpr char kActivityTypesKey[] = "ACTIVITY_TYPES";
 constexpr char kActivitiesLogFileKey[] = "ACTIVITIES_LOG_FILE";
 constexpr char kActivitiesDurationKey[] = "ACTIVITIES_DURATION_SECS";
@@ -62,8 +62,8 @@ constexpr char kActivitiesWarmupDurationSecsKey[] =
     "ACTIVITIES_WARMUP_PERIOD_SECS";
 constexpr char kActivitiesMaxGpuBufferSizeKey[] =
     "ACTIVITIES_MAX_GPU_BUFFER_SIZE_MB";
-constexpr char kActivitiesDisplayCudaSyncWaitEvents[] =
-    "ACTIVITIES_DISPLAY_CUDA_SYNC_WAIT_EVENTS";
+constexpr char kActivitiesDisplayMusaSyncWaitEvents[] =
+    "ACTIVITIES_DISPLAY_MUSA_SYNC_WAIT_EVENTS";
 
 // Client Interface
 // TODO: keep supporting these older config options, deprecate in the future
@@ -238,7 +238,7 @@ Config::Config()
       activitiesMaxGpuBufferSize_(kDefaultActivitiesMaxGpuBufferSize),
       activitiesWarmupDuration_(kDefaultActivitiesWarmupDurationSecs),
       activitiesWarmupIterations_(0),
-      activitiesCudaSyncWaitEvents_(true),
+      activitiesMusaSyncWaitEvents_(true),
       activitiesDuration_(kDefaultActivitiesProfileDurationMSecs),
       activitiesRunIterations_(0),
       activitiesOnDemandTimestamp_(milliseconds(0)),
@@ -248,8 +248,8 @@ Config::Config()
       enableIpcFabric_(false),
       onDemandConfigUpdateIntervalSecs_(
           kDefaultOnDemandConfigUpdateIntervalSecs),
-      cuptiDeviceBufferSize_(kDefaultCuptiDeviceBufferSize),
-      cuptiDeviceBufferPoolLimit_(kDefaultCuptiDeviceBufferPoolLimit) {
+      muptiDeviceBufferSize_(kDefaultMuptiDeviceBufferSize),
+      muptiDeviceBufferPoolLimit_(kDefaultMuptiDeviceBufferPoolLimit) {
   auto factories = configFactories();
   if (factories) {
     factories->addFeatureConfigs(*this);
@@ -345,12 +345,12 @@ bool Config::handleOption(const std::string& name, std::string& val) {
     verboseLogModules_ = splitAndTrim(val, ',');
   } else if (!name.compare(kActivitiesEnabledKey)) {
     activityProfilerEnabled_ = toBool(val);
-  } else if (!name.compare(kCuptiPerThreadBufferEnabledKey)) {
+  } else if (!name.compare(kMuptiPerThreadBufferEnabledKey)) {
     perThreadBufferEnabled_ = toBool(val);
-  } else if (!name.compare(kCuptiPMSamplingMetricsKey)) {
-    cuptiPMSamplingMetricNames_ = splitAndTrim(val, ',');
-  } else if (!name.compare(kCuptiPMSamplingDeviceIdKey)) {
-    cuptiPMSamplingDeviceId_ = toInt32(val);
+  } else if (!name.compare(kMuptiPMSamplingMetricsKey)) {
+    muptiPMSamplingMetricNames_ = splitAndTrim(val, ',');
+  } else if (!name.compare(kMuptiPMSamplingDeviceIdKey)) {
+    muptiPMSamplingDeviceId_ = toInt32(val);
   } else if (!name.compare(kProfileMemory)) {
     memoryProfilerEnabled_ = toBool(val);
     if (memoryProfilerEnabled_) {
@@ -386,8 +386,8 @@ bool Config::handleOption(const std::string& name, std::string& val) {
     activitiesWarmupDuration_ = seconds(toInt32(val));
   } else if (!name.compare(kActivitiesWarmupIterationsKey)) {
     activitiesWarmupIterations_ = toInt32(val);
-  } else if (!name.compare(kActivitiesDisplayCudaSyncWaitEvents)) {
-    activitiesCudaSyncWaitEvents_ = toBool(val);
+  } else if (!name.compare(kActivitiesDisplayMusaSyncWaitEvents)) {
+    activitiesMusaSyncWaitEvents_ = toBool(val);
   } else if (!name.compare(kRequestTraceID)) {
     requestTraceID_ = val;
   } else if (!name.compare(kRequestGroupTraceID)) {

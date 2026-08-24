@@ -62,7 +62,7 @@ class JsonTypedMetadataVisitor final : public ITypedMetadataVisitor {
   }
 
  private:
-  // Sized to hold the largest common CUDA activity (kernels) in one allocation,
+  // Sized to hold the largest common MUSA activity (kernels) in one allocation,
   // with some buffer
   static constexpr size_t kInitialJsonCapacity = 1024;
 

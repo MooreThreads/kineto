@@ -879,8 +879,8 @@ void ChromeTraceLogger::handleActivity(const libkineto::ITraceActivity& op) {
         libkineto::ActivityType::GPU_MEMCPY,
         libkineto::ActivityType::GPU_MEMSET,
         libkineto::ActivityType::CONCURRENT_KERNEL,
-        libkineto::ActivityType::CUDA_RUNTIME,
-        libkineto::ActivityType::CUDA_DRIVER,
+        libkineto::ActivityType::PRIVATEUSE1_RUNTIME,
+        libkineto::ActivityType::PRIVATEUSE1_DRIVER,
         libkineto::ActivityType::XPU_RUNTIME,
         libkineto::ActivityType::XPU_DRIVER,
         libkineto::ActivityType::PRIVATEUSE1_RUNTIME,
@@ -901,7 +901,7 @@ void ChromeTraceLogger::handleActivity(const libkineto::ITraceActivity& op) {
   const auto* linkedOp = op.linkedActivity();
   if (linkedOp != nullptr && linkedOp->name() == kParamCommsCallName) {
     if (op.type() == ActivityType::CONCURRENT_KERNEL) {
-      appendCollectiveMetadata(args, *linkedOp, "nccl", "cuda:nccl");
+      appendCollectiveMetadata(args, *linkedOp, "nccl", "musa:nccl");
     } else if (
         op.type() == ActivityType::MTIA_CCP_EVENTS &&
         op.name().starts_with("hccl::")) {
@@ -914,7 +914,7 @@ void ChromeTraceLogger::handleActivity(const libkineto::ITraceActivity& op) {
 
   // Move Stream Sync events to a dedicated row so they don't overlap with
   // kernel events on the same stream in the trace viewer.
-  if (op.type() == ActivityType::CUDA_SYNC && op.name() == "Stream Sync") {
+  if (op.type() == ActivityType::MUSA_SYNC && op.name() == "Stream Sync") {
     int64_t syncTid = resource + kSyncStreamTidOffset;
     int64_t key = (device << 32) | syncTid;
     if (syncStreamMetadataEmitted_.insert(key).second) {
@@ -1007,7 +1007,7 @@ void ChromeTraceLogger::handleLink(
   int64_t tid = e.resourceId();
   // Use the virtual tid for Stream Sync events to match the row
   // they were placed on in handleActivity().
-  if (e.type() == ActivityType::CUDA_SYNC && e.name() == "Stream Sync") {
+  if (e.type() == ActivityType::MUSA_SYNC && e.name() == "Stream Sync") {
     tid = tid + kSyncStreamTidOffset;
   }
   writeFlowEvent(

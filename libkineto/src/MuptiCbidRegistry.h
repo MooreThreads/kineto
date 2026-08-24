@@ -12,40 +12,40 @@
 #include <unordered_map>
 #include <vector>
 
-#include <cupti.h>
+#include <mupti.h>
 
 namespace KINETO_NAMESPACE {
 
-// Domain of the CUPTI callback
+// Domain of the MUPTI callback
 enum class CallbackDomain : uint8_t {
-  RUNTIME, // CUDA Runtime API (cudaXxx functions)
-  DRIVER, // CUDA Driver API (cuXxx functions)
+  RUNTIME, // MUSA Runtime API (musaXxx functions)
+  DRIVER, // MUSA Driver API (muXxx functions)
 };
 
-// CuptiCbidRegistry: Central registry for CUPTI callback ID metadata
+// MuptiCbidRegistry: Central registry for MUPTI callback ID metadata
 //
-// This class provides a single source of truth for all CUPTI callback ID
+// This class provides a single source of truth for all MUPTI callback ID
 // properties, replacing scattered hardcoded checks throughout the codebase.
 //
 // The registry is initialized lazily on first access via instance().
 // All callback IDs are registered in the constructor with their properties.
 //
 // Usage:
-//   auto& registry = CuptiCbidRegistry::instance();
+//   auto& registry = MuptiCbidRegistry::instance();
 //   if (registry.requiresFlowCorrelation(CallbackDomain::RUNTIME, cbid)) {
 //     // Create flow correlation
 //   }
 //
-class CuptiCbidRegistry {
+class MuptiCbidRegistry {
  public:
   // Get the singleton instance (lazy initialization on first call)
-  static CuptiCbidRegistry& instance();
+  static MuptiCbidRegistry& instance();
 
   // Disable copy/move
-  CuptiCbidRegistry(const CuptiCbidRegistry&) = delete;
-  CuptiCbidRegistry& operator=(const CuptiCbidRegistry&) = delete;
-  CuptiCbidRegistry(CuptiCbidRegistry&&) = delete;
-  CuptiCbidRegistry& operator=(CuptiCbidRegistry&&) = delete;
+  MuptiCbidRegistry(const MuptiCbidRegistry&) = delete;
+  MuptiCbidRegistry& operator=(const MuptiCbidRegistry&) = delete;
+  MuptiCbidRegistry(MuptiCbidRegistry&&) = delete;
+  MuptiCbidRegistry& operator=(MuptiCbidRegistry&&) = delete;
 
   // Check if a callback ID requires flow correlation (CPU->GPU arrows in trace)
   [[nodiscard]] bool requiresFlowCorrelation(
@@ -59,8 +59,8 @@ class CuptiCbidRegistry {
   [[nodiscard]] bool isRegistered(CallbackDomain domain, uint32_t cbid);
 
  private:
-  CuptiCbidRegistry();
-  ~CuptiCbidRegistry() = default;
+  MuptiCbidRegistry();
+  ~MuptiCbidRegistry() = default;
 
   // Properties stored per callback ID
   struct CbidProperties {

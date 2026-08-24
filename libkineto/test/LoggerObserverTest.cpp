@@ -65,7 +65,7 @@ void* writeSeveralMessages() {
 }
 
 TEST(LoggerObserverTest, FourCollectorObserver) {
-  // There shouldn't be too many CUPTIActivityProfilers active at the same time.
+  // There shouldn't be too many MUPTIActivityProfilers active at the same time.
   std::unique_ptr<LoggerCollector> lc1 = std::make_unique<LoggerCollector>();
   std::unique_ptr<LoggerCollector> lc2 = std::make_unique<LoggerCollector>();
   std::unique_ptr<LoggerCollector> lc3 = std::make_unique<LoggerCollector>();

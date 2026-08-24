@@ -16,9 +16,9 @@
 // TODO DEVICE_AGNOSTIC: Move the device decision out of C++ files to be
 //                       determined entirely by the build process. For the
 //                       controller, we'll need some registration mechanism.
-#if defined(HAS_CUPTI)
-#include "CuptiActivityApi.h"
-#include "CuptiActivityProfiler.h"
+#if defined(HAS_MUPTI)
+#include "MuptiActivityApi.h"
+#include "MuptiActivityProfiler.h"
 
 #elif defined(HAS_ROCTRACER)
 #include "RocmActivityProfiler.h"
@@ -71,7 +71,7 @@ ActivityProfilerController::ActivityProfilerController(
 
 #if !USE_GOOGLE_LOG
   // Initialize LoggerCollectors before ActivityProfiler to log
-  // CUPTI and CUDA driver versions.
+  // MUPTI and MUSA driver versions.
   // Keep a reference to handle safe static de-initialization.
   loggerCollectors_ = loggerCollectors();
   for (auto& collector : loggerCollectors_) {
@@ -79,9 +79,9 @@ ActivityProfilerController::ActivityProfilerController(
   }
 #endif // !USE_GOOGLE_LOG
 
-#if defined(HAS_CUPTI)
-  profiler_ = std::make_unique<CuptiActivityProfiler>(
-      CuptiActivityApi::singleton(), cpuOnly);
+#if defined(HAS_MUPTI)
+  profiler_ = std::make_unique<MuptiActivityProfiler>(
+      MuptiActivityApi::singleton(), cpuOnly);
 #elif defined(HAS_ROCTRACER)
   profiler_ = std::make_unique<RocmActivityProfiler>(
       RocprofActivityApi::singleton(), cpuOnly);

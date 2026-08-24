@@ -22,7 +22,7 @@
 #define KINETO_RDTSC
 #if defined(_MSC_VER)
 #include <intrin.h>
-#elif defined(__CUDACC__) || defined(__HIPCC__)
+#elif defined(__MUSACC__) || defined(__HIPCC__)
 #undef KINETO_RDTSC
 #elif defined(__clang__)
 // `__rdtsc` is available by default.
@@ -32,7 +32,7 @@
 #else
 #undef KINETO_RDTSC
 #endif
-#elif defined(__aarch64__) && !defined(__CUDACC__) && !defined(__HIPCC__)
+#elif defined(__aarch64__) && !defined(__MUSACC__) && !defined(__HIPCC__)
 #define KINETO_ARMTSC
 #endif
 

@@ -124,13 +124,13 @@ class Config : public AbstractConfig {
     return activitiesWarmupIterations_;
   }
 
-  // Show CUDA Synchronization Stream Wait Events
-  [[nodiscard]] bool activitiesCudaSyncWaitEvents() const {
-    return activitiesCudaSyncWaitEvents_;
+  // Show MUSA Synchronization Stream Wait Events
+  [[nodiscard]] bool activitiesMusaSyncWaitEvents() const {
+    return activitiesMusaSyncWaitEvents_;
   }
 
-  void setActivitiesCudaSyncWaitEvents(bool enable) {
-    activitiesCudaSyncWaitEvents_ = enable;
+  void setActivitiesMusaSyncWaitEvents(bool enable) {
+    activitiesMusaSyncWaitEvents_ = enable;
   }
 
   [[nodiscard]] std::chrono::time_point<std::chrono::system_clock>
@@ -220,21 +220,21 @@ class Config : public AbstractConfig {
     requestGroupTraceID_ = gtid;
   }
 
-  [[nodiscard]] size_t cuptiDeviceBufferSize() const {
-    return cuptiDeviceBufferSize_;
+  [[nodiscard]] size_t muptiDeviceBufferSize() const {
+    return muptiDeviceBufferSize_;
   }
 
-  [[nodiscard]] size_t cuptiDeviceBufferPoolLimit() const {
-    return cuptiDeviceBufferPoolLimit_;
+  [[nodiscard]] size_t muptiDeviceBufferPoolLimit() const {
+    return muptiDeviceBufferPoolLimit_;
   }
 
-  [[nodiscard]] const std::vector<std::string>& cuptiPMSamplingMetricNames()
+  [[nodiscard]] const std::vector<std::string>& muptiPMSamplingMetricNames()
       const {
-    return cuptiPMSamplingMetricNames_;
+    return muptiPMSamplingMetricNames_;
   }
 
-  [[nodiscard]] int32_t cuptiPMSamplingDeviceId() const {
-    return cuptiPMSamplingDeviceId_;
+  [[nodiscard]] int32_t muptiPMSamplingDeviceId() const {
+    return muptiPMSamplingDeviceId_;
   }
 
   [[nodiscard]] bool memoryProfilerEnabled() const {
@@ -326,7 +326,7 @@ class Config : public AbstractConfig {
   int64_t activitiesMaxGpuBufferSize_;
   std::chrono::seconds activitiesWarmupDuration_;
   int activitiesWarmupIterations_;
-  bool activitiesCudaSyncWaitEvents_;
+  bool activitiesMusaSyncWaitEvents_;
 
   // Enable Profiler Config Options
   // Temporarily disable shape collection until we re-roll out the feature for
@@ -369,15 +369,15 @@ class Config : public AbstractConfig {
   std::string requestTraceID_;
   std::string requestGroupTraceID_;
 
-  // CUPTI Device Buffer
-  size_t cuptiDeviceBufferSize_;
-  size_t cuptiDeviceBufferPoolLimit_;
+  // MUPTI Device Buffer
+  size_t muptiDeviceBufferSize_;
+  size_t muptiDeviceBufferPoolLimit_;
 
-  // CUPTI PM Sampling
-  std::vector<std::string> cuptiPMSamplingMetricNames_;
-  int32_t cuptiPMSamplingDeviceId_{-1};
+  // MUPTI PM Sampling
+  std::vector<std::string> muptiPMSamplingMetricNames_;
+  int32_t muptiPMSamplingDeviceId_{-1};
 
-  // CUPTI Timestamp Format
+  // MUPTI Timestamp Format
   bool useTSCTimestamp_{true};
 
   // Memory Profiler

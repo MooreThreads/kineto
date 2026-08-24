@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "CuptiPMSamplingProfiler.h"
+#include "MuptiPMSamplingProfiler.h"
 
 #include <algorithm>
 #include <chrono>
@@ -15,7 +15,7 @@
 #include <utility>
 
 #include "ActivityType.h"
-#include "CuptiTimestamp.h"
+#include "MuptiTimestamp.h"
 #include "Logger.h"
 #include "libkineto.h"
 #include "output_base.h"
@@ -23,7 +23,7 @@
 namespace KINETO_NAMESPACE {
 namespace {
 
-const std::string kProfilerName{"CUPTI PM Sampling"};
+const std::string kProfilerName{"MUPTI PM Sampling"};
 const std::set<libkineto::ActivityType> kSupportedActivities{
     libkineto::ActivityType::HARDWARE_COUNTERS};
 // TODO: This is a temporary constant -- we need to tune the interval by
@@ -32,48 +32,48 @@ constexpr std::chrono::milliseconds kSamplingInterval{1};
 
 } // namespace
 
-CuptiPMSamplingSession::CuptiPMSamplingSession(
-    const CuptiPMSamplingConfig& config)
-    : CuptiPMSamplingSession(
-          std::make_unique<CuptiPMSamplingController>(config)) {}
+MuptiPMSamplingSession::MuptiPMSamplingSession(
+    const MuptiPMSamplingConfig& config)
+    : MuptiPMSamplingSession(
+          std::make_unique<MuptiPMSamplingController>(config)) {}
 
-CuptiPMSamplingSession::CuptiPMSamplingSession(
-    std::unique_ptr<ICuptiPMSamplingController> controller)
+MuptiPMSamplingSession::MuptiPMSamplingSession(
+    std::unique_ptr<IMuptiPMSamplingController> controller)
     : controller_(std::move(controller)) {}
 
-CuptiPMSamplingSession::~CuptiPMSamplingSession() = default;
+MuptiPMSamplingSession::~MuptiPMSamplingSession() = default;
 
-bool CuptiPMSamplingSession::prepare() {
+bool MuptiPMSamplingSession::prepare() {
   // PM sampling and activity profiling share the same timestamp callbacks.
   // This can only run after activity profiling enables the callbacks in
   // enableGpuTracing
-  if (!isCuptiTimestampSourceReady()) {
-    LOG(WARNING) << "CUPTI PM sampling requires timestamp setup from the "
-                    "CUPTI Activity profiler";
+  if (!isMuptiTimestampSourceReady()) {
+    LOG(WARNING) << "MUPTI PM sampling requires timestamp setup from the "
+                    "MUPTI Activity profiler";
     return false;
   }
 
-  // prepare() enables CUPTI PM sampling and acquires exclusive access during
+  // prepare() enables MUPTI PM sampling and acquires exclusive access during
   // the parent profiler's warmup phase. Collection itself begins in start().
   if (!controller_->prepare()) {
-    LOG(WARNING) << "CUPTI PM sampling failed to prepare CUDA device "
+    LOG(WARNING) << "MUPTI PM sampling failed to prepare MUSA device "
                  << controller_->deviceId();
     return false;
   }
   return true;
 }
 
-void CuptiPMSamplingSession::start() {
+void MuptiPMSamplingSession::start() {
   controller_->start();
 }
 
-void CuptiPMSamplingSession::stop() {
+void MuptiPMSamplingSession::stop() {
   if (controller_->stop()) {
     traceBuffer_ = buildTraceBuffer();
   }
 }
 
-std::vector<std::string> CuptiPMSamplingSession::errors() {
+std::vector<std::string> MuptiPMSamplingSession::errors() {
   // GenericActivityProfiler does not consume child profiler status or errors.
   // The controller logs failures directly for visibility.
   return {};
@@ -81,7 +81,7 @@ std::vector<std::string> CuptiPMSamplingSession::errors() {
 
 // TODO: Override the capture-window processTrace overload and exclude samples
 // collected during shutdown that fall outside the requested trace interval.
-void CuptiPMSamplingSession::processTrace(libkineto::ActivityLogger& logger) {
+void MuptiPMSamplingSession::processTrace(libkineto::ActivityLogger& logger) {
   if (!traceBuffer_) {
     return;
   }
@@ -90,21 +90,21 @@ void CuptiPMSamplingSession::processTrace(libkineto::ActivityLogger& logger) {
   }
 }
 
-std::unique_ptr<libkineto::DeviceInfo> CuptiPMSamplingSession::getDeviceInfo() {
+std::unique_ptr<libkineto::DeviceInfo> MuptiPMSamplingSession::getDeviceInfo() {
   return nullptr;
 }
 
-std::vector<libkineto::ResourceInfo> CuptiPMSamplingSession::
+std::vector<libkineto::ResourceInfo> MuptiPMSamplingSession::
     getResourceInfos() {
   return {};
 }
 
-std::unique_ptr<libkineto::CpuTraceBuffer> CuptiPMSamplingSession::
+std::unique_ptr<libkineto::CpuTraceBuffer> MuptiPMSamplingSession::
     getTraceBuffer() {
   return std::move(traceBuffer_);
 }
 
-std::unique_ptr<libkineto::CpuTraceBuffer> CuptiPMSamplingSession::
+std::unique_ptr<libkineto::CpuTraceBuffer> MuptiPMSamplingSession::
     buildTraceBuffer() {
   auto buffer = std::make_unique<libkineto::CpuTraceBuffer>();
   buffer->span = libkineto::TraceSpan{0, 0, kProfilerName};
@@ -112,8 +112,8 @@ std::unique_ptr<libkineto::CpuTraceBuffer> CuptiPMSamplingSession::
   const auto samples = controller_->takeSamples();
   const auto& metricNames = controller_->metricNames();
   for (const auto& sample : samples) {
-    const auto start = convertCuptiTimestamp(sample.rawStartTimestamp);
-    const auto end = convertCuptiTimestamp(sample.rawEndTimestamp);
+    const auto start = convertMuptiTimestamp(sample.rawStartTimestamp);
+    const auto end = convertMuptiTimestamp(sample.rawEndTimestamp);
 
     if (buffer->activities.empty()) {
       buffer->span.startTime = start;
@@ -139,16 +139,16 @@ std::unique_ptr<libkineto::CpuTraceBuffer> CuptiPMSamplingSession::
   return buffer;
 }
 
-const std::string& CuptiPMSamplingProfiler::name() const {
+const std::string& MuptiPMSamplingProfiler::name() const {
   return kProfilerName;
 }
 
-const std::set<libkineto::ActivityType>& CuptiPMSamplingProfiler::
+const std::set<libkineto::ActivityType>& MuptiPMSamplingProfiler::
     availableActivities() const {
   return kSupportedActivities;
 }
 
-std::unique_ptr<libkineto::IActivityProfilerSession> CuptiPMSamplingProfiler::
+std::unique_ptr<libkineto::IActivityProfilerSession> MuptiPMSamplingProfiler::
     configure(
         const std::set<libkineto::ActivityType>& activityTypes,
         const libkineto::Config& config) {
@@ -158,28 +158,28 @@ std::unique_ptr<libkineto::IActivityProfilerSession> CuptiPMSamplingProfiler::
   }
 
   // Translate from the Kineto config into the sampling-specific config
-  const auto& metricNames = config.cuptiPMSamplingMetricNames();
+  const auto& metricNames = config.muptiPMSamplingMetricNames();
   if (metricNames.empty()) {
     return nullptr;
   }
 
-  const auto deviceId = config.cuptiPMSamplingDeviceId();
+  const auto deviceId = config.muptiPMSamplingDeviceId();
   if (deviceId < 0) {
-    LOG(WARNING) << "CUPTI PM sampling requires a nonnegative "
-                    "CUPTI_PM_SAMPLING_DEVICE_ID";
+    LOG(WARNING) << "MUPTI PM sampling requires a nonnegative "
+                    "MUPTI_PM_SAMPLING_DEVICE_ID";
     return nullptr;
   }
 
-  const CuptiPMSamplingConfig pmConfig{
+  const MuptiPMSamplingConfig pmConfig{
       deviceId, metricNames, kSamplingInterval};
-  auto session = std::make_unique<CuptiPMSamplingSession>(pmConfig);
+  auto session = std::make_unique<MuptiPMSamplingSession>(pmConfig);
   if (!session->prepare()) {
     return nullptr;
   }
   return session;
 }
 
-std::unique_ptr<libkineto::IActivityProfilerSession> CuptiPMSamplingProfiler::
+std::unique_ptr<libkineto::IActivityProfilerSession> MuptiPMSamplingProfiler::
     configure(
         int64_t /*startTimeMs*/,
         int64_t /*durationMs*/,

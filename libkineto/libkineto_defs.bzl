@@ -90,26 +90,26 @@ INIT_SRCS = [
     "src/init.cpp",
 ]
 
-# --- CUPTI (CUDA) source atoms ---
-CUPTI_API_SRCS = [
-    "src/CuptiActivityApi.cpp",
-    "src/CuptiCallbackApi.cpp",
-    "src/CuptiCbidRegistry.cpp",
-    "src/cupti_strings.cpp",
+# --- MUPTI (MUSA) source atoms ---
+MUPTI_API_SRCS = [
+    "src/MuptiActivityApi.cpp",
+    "src/MuptiCallbackApi.cpp",
+    "src/MuptiCbidRegistry.cpp",
+    "src/mupti_strings.cpp",
 ]
 
-CUPTI_ACTIVITY_PROFILER_SRCS = [
-    "src/CuptiActivityProfiler.cpp",
-    "src/CuptiTimestamp.cpp",
+MUPTI_ACTIVITY_PROFILER_SRCS = [
+    "src/MuptiActivityProfiler.cpp",
+    "src/MuptiTimestamp.cpp",
 ]
 
-CUPTI_PM_SAMPLING_API_SRCS = [
-    "src/CuptiPMSamplingApi.cpp",
+MUPTI_PM_SAMPLING_API_SRCS = [
+    "src/MuptiPMSamplingApi.cpp",
 ]
 
-CUPTI_PM_SAMPLING_PROFILER_SRCS = [
-    "src/CuptiPMSamplingController.cpp",
-    "src/CuptiPMSamplingProfiler.cpp",
+MUPTI_PM_SAMPLING_PROFILER_SRCS = [
+    "src/MuptiPMSamplingController.cpp",
+    "src/MuptiPMSamplingProfiler.cpp",
 ]
 
 WEAK_SYMBOLS_SRCS = [
@@ -164,11 +164,11 @@ def get_libkineto_cpu_only_srcs(with_api = True):
         + (get_libkineto_api_srcs() if with_api else [])
     )
 
-def get_libkineto_cupti_srcs(with_api = True):
-    return CUPTI_API_SRCS + CUPTI_ACTIVITY_PROFILER_SRCS + KERNEL_REGISTRY_SRCS + WEAK_SYMBOLS_SRCS + get_libkineto_cpu_only_srcs(with_api)
+def get_libkineto_mupti_srcs(with_api = True):
+    return MUPTI_API_SRCS + MUPTI_ACTIVITY_PROFILER_SRCS + KERNEL_REGISTRY_SRCS + WEAK_SYMBOLS_SRCS + get_libkineto_cpu_only_srcs(with_api)
 
-def get_libkineto_cupti_pm_sampling_srcs():
-    return CUPTI_PM_SAMPLING_API_SRCS + CUPTI_PM_SAMPLING_PROFILER_SRCS
+def get_libkineto_mupti_pm_sampling_srcs():
+    return MUPTI_PM_SAMPLING_API_SRCS + MUPTI_PM_SAMPLING_PROFILER_SRCS
 
 def get_libkineto_rocprofiler_srcs(with_api = True):
     return ROCM_ACTIVITY_PROFILER_SRCS + ROCM_API_SRCS + get_libkineto_cpu_only_srcs(with_api)

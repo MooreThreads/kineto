@@ -14,15 +14,15 @@ using namespace KINETO_NAMESPACE;
 
 class OccupancyMetricsTest : public ::testing::Test {};
 
-#ifdef HAS_CUPTI
+#ifdef HAS_MUPTI
 
-// Verify all cudaOccResult fields are mapped to OccupancyMetrics
+// Verify all musaOccResult fields are mapped to OccupancyMetrics
 TEST_F(OccupancyMetricsTest, AllFieldsPopulated) {
   if (smCount(0) == 0) {
     GTEST_SKIP() << "No GPU available";
   }
 
-  CUpti_ActivityKernelType kernel = {};
+  MUpti_ActivityKernelType kernel = {};
   kernel.deviceId = 0;
   kernel.registersPerThread = 32;
   kernel.staticSharedMemory = 0;
@@ -36,7 +36,7 @@ TEST_F(OccupancyMetricsTest, AllFieldsPopulated) {
 
   OccupancyMetrics metrics = computeOccupancyMetrics(kernel);
 
-  // All fields from cudaOccResult should be populated (non-default)
+  // All fields from musaOccResult should be populated (non-default)
   EXPECT_NE(metrics.occupancy, -1.0f);
   EXPECT_NE(metrics.result.activeBlocksPerMultiprocessor, 0);
   // limitingFactors can legitimately be 0 if nothing is limiting
@@ -50,4 +50,4 @@ TEST_F(OccupancyMetricsTest, AllFieldsPopulated) {
   EXPECT_EQ(metrics.result.partitionedGCConfig, PARTITIONED_GC_OFF);
 }
 
-#endif // HAS_CUPTI
+#endif // HAS_MUPTI
