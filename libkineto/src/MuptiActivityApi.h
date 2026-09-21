@@ -90,6 +90,7 @@ class MuptiActivityApi {
   std::unique_ptr<MuptiActivityBufferMap> readyGpuTraceBuffers_;
   std::mutex mutex_;
   std::atomic<uint32_t> tracingEnabled_{0};
+  std::atomic<uint32_t> tearingDown_{0};
   bool externalCorrelationEnabled_{false};
 
 #ifdef HAS_MUPTI

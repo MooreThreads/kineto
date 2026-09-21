@@ -57,8 +57,8 @@ inline void reenableMuptiCallbacks_(std::shared_ptr<MuptiCallbackApi>& cbapi_) {
 #endif
 
 MuptiActivityApi& MuptiActivityApi::singleton() {
-  static MuptiActivityApi instance;
-  return instance;
+  static auto* instance = new MuptiActivityApi();
+  return *instance;
 }
 
 void MuptiActivityApi::pushCorrelationID(int id, CorrelationFlowType type) {
@@ -179,6 +179,9 @@ std::unique_ptr<MuptiActivityBufferMap> MuptiActivityApi::activityBuffers() {
   {
     std::lock_guard<std::mutex> guard(mutex_);
     if (allocatedGpuTraceBuffers_.empty()) {
+      if (readyGpuTraceBuffers_) {
+        return std::move(readyGpuTraceBuffers_);
+      }
       return nullptr;
     }
   }
@@ -272,25 +275,29 @@ void MuptiActivityApi::bufferCompleted(
     size_t /* unused */,
     size_t validSize) {
 
-  std::lock_guard<std::mutex> guard(mutex_);
-  auto it = allocatedGpuTraceBuffers_.find(buffer);
-  if (it == allocatedGpuTraceBuffers_.end()) {
-    LOG(ERROR) << "bufferCompleted called with unknown buffer: "
-               << (void*) buffer;
-    return;
-  }
+  {
+    std::lock_guard<std::mutex> guard(mutex_);
+    auto it = allocatedGpuTraceBuffers_.find(buffer);
+    if (it == allocatedGpuTraceBuffers_.end()) {
+      LOG(ERROR) << "bufferCompleted called with unknown buffer: "
+                 << static_cast<void*>(buffer);
+      return;
+    }
 
-  if (!readyGpuTraceBuffers_) {
-    readyGpuTraceBuffers_ = std::make_unique<MuptiActivityBufferMap>();
+    if (!readyGpuTraceBuffers_) {
+      readyGpuTraceBuffers_ = std::make_unique<MuptiActivityBufferMap>();
+    }
+    // Set valid size of buffer before moving to ready map
+    it->second->setSize(validSize);
+    (*readyGpuTraceBuffers_)[it->first] = std::move(it->second);
+    allocatedGpuTraceBuffers_.erase(it);
   }
-  // Set valid size of buffer before moving to ready map
-  it->second->setSize(validSize);
-  (*readyGpuTraceBuffers_)[it->first] = std::move(it->second);
-  allocatedGpuTraceBuffers_.erase(it);
 
   // report any records dropped from the queue; to avoid unnecessary mupti
   // API calls, we make it report only in verbose mode (it doesn't happen
   // often in our testing anyways)
+  // Can't hold mutex_ during this call, since muptiActivityGetNumDroppedRecords
+  // can acquire MUPTI's internal lock while MUPTI callbacks acquire mutex_.
   if (VLOG_IS_ON(1)) {
     size_t dropped = 0;
     MUPTI_CALL(muptiActivityGetNumDroppedRecords(ctx, streamId, &dropped));
@@ -399,7 +406,11 @@ void MuptiActivityApi::teardownContext() {
   if (!tracingEnabled_) {
     return;
   }
+  if (tearingDown_) {
+    return;
+  }
   if (muptiTearDown_()) {
+    tearingDown_ = 1;
     LOG(INFO) << "teardownMupti starting";
 
     // PyTorch Profiler is synchronous, so teardown needs to be run async in this thread.
@@ -409,6 +420,7 @@ void MuptiActivityApi::teardownContext() {
         cbapi_->initCallbackApi();
         if (!cbapi_->initSuccess()) {
           LOG(WARNING) << "MUPTI Callback failed to init, skipping teardown";
+          tearingDown_ = 0;
           return;
         }
       }
@@ -417,6 +429,7 @@ void MuptiActivityApi::teardownContext() {
       status = status && cbapi_->enableCallbackDomain(MUPTI_CB_DOMAIN_DRIVER_API);
       if (!status) {
         LOG(WARNING) << "MUPTI Callback failed to enable for domain, skipping teardown";
+        tearingDown_ = 0;
         return;
       }
 
@@ -442,6 +455,7 @@ void MuptiActivityApi::teardownContext() {
         reenableMuptiCallbacks_(cbapi_);
       }
       cbapi_.reset();
+      tearingDown_ = 0;
     });
     teardownThread.detach();
   }

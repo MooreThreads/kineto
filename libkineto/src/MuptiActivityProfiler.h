@@ -28,6 +28,7 @@
 #ifdef HAS_MUPTI
 #include <mupti.h>
 #include "MuptiActivity.h"
+#include "MuptiActivityBuffer.h"
 #endif // HAS_MUPTI
 
 #include "ThreadUtil.h"
@@ -382,6 +383,7 @@ class MuptiActivityProfiler {
   void handleMuptiActivity(const MUpti_Activity* record, ActivityLogger* logger);
 
   // Process specific GPU activity types
+  void buildProcessingState(MuptiActivityBufferMap& buffers);
   void handleCorrelationActivity(
       const MUpti_ActivityExternalCorrelation* correlation);
   void handleRuntimeActivity(

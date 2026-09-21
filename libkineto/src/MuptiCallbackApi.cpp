@@ -65,10 +65,10 @@ static void callback_switchboard(
 
   // below statement is likey going to call a mutex
   // on the singleton access
-//#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40303)
-//  MuptiCallbackApi::singleton()->__callback_switchboard(
-//      domain, cbid, cbInfo);
-//#endif
+#if defined(REAL_MUSA_VERSION) && (REAL_MUSA_VERSION >= 40303)
+ MuptiCallbackApi::singleton()->__callback_switchboard(
+     domain, cbid, cbInfo);
+#endif
 }
 
 
@@ -155,12 +155,13 @@ void MuptiCallbackApi::__callback_switchboard(
 }
 
 std::shared_ptr<MuptiCallbackApi> MuptiCallbackApi::singleton() {
-  static const std::shared_ptr<MuptiCallbackApi> instance = [] {
-    std::shared_ptr<MuptiCallbackApi> inst =
-        std::make_shared<MuptiCallbackApi>();
-    return inst;
-  }();
-  return instance;
+  // MUPTI may invoke resource callbacks during process shutdown, after static
+  // destruction has started. Intentionally leak the singleton so callback
+  // state remains valid until process termination.
+  static const auto* instance =
+        new std::shared_ptr<MuptiCallbackApi>(
+            std::make_shared<MuptiCallbackApi>());
+    return *instance;
 }
 
 void MuptiCallbackApi::initCallbackApi() {
