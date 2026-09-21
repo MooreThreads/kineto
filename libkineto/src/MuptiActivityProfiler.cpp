@@ -294,6 +294,13 @@ void MuptiActivityProfiler::processTraceInternal(ActivityLogger& logger) {
       addOverheadSample(flushOverhead_, mupti_.flushOverhead);
     }
     if (traceBuffers_->gpu) {
+      // Pass 1: Preprocess all raw records to populate correlation and
+      // context lookup state.
+      buildProcessingState(*traceBuffers_->gpu);
+
+      // Pass 2: Materialize activities. buildProcessingState() has already
+      // populated correlation and context lookup state;
+      // EXTERNAL_CORRELATION is a no-op in handleMuptiActivity.
       const auto count_and_size = mupti_.processActivities(
           *traceBuffers_->gpu,
           std::bind(
@@ -390,6 +397,20 @@ void MuptiActivityProfiler::processCpuTrace(
 }
 
 #ifdef HAS_MUPTI
+void MuptiActivityProfiler::buildProcessingState(
+    MuptiActivityBufferMap& buffers) {
+  mupti_.processActivities(buffers, [this](const MUpti_Activity* record) {
+    switch (record->kind) {
+      case MUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
+        handleCorrelationActivity(
+            reinterpret_cast<const MUpti_ActivityExternalCorrelation*>(record));
+        break;
+      default:
+        break;
+    }
+  });
+}
+
 inline void MuptiActivityProfiler::handleCorrelationActivity(
     const MUpti_ActivityExternalCorrelation* correlation) {
   if (correlation->externalKind == MUPTI_EXTERNAL_CORRELATION_KIND_CUSTOM0) {
@@ -788,8 +809,7 @@ void MuptiActivityProfiler::handleMuptiActivity(
     ActivityLogger* logger) {
   switch (record->kind) {
     case MUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION:
-      handleCorrelationActivity(
-          reinterpret_cast<const MUpti_ActivityExternalCorrelation*>(record));
+      // Populated in buildProcessingState().
       break;
     case MUPTI_ACTIVITY_KIND_RUNTIME:
       handleRuntimeActivity(
