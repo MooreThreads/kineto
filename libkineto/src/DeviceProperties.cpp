@@ -131,7 +131,10 @@ static std::string createDevicePropertiesJson() {
   for (size_t i = 0; i < props.size(); i++) {
     libkineto::internal::JsonTypedMetadataVisitor visitor;
     visitDeviceMetadata(i, props[i], visitor);
-    jsonProps.push_back("{" + std::move(visitor).json() + "}");
+    auto json = std::move(visitor).json();
+    json.insert(json.begin(), '{');
+    json.push_back('}');
+    jsonProps.push_back(std::move(json));
   }
   return fmt::format("{}", fmt::join(jsonProps, ","));
 }
